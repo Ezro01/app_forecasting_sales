@@ -5,7 +5,8 @@ from Preprocessing import Preprocessing_data
 from Sales_recovery import Recovery_sales
 from First_model_learning import First_learning_model
 from Next_model_predict import Use_model_predict
-
+from DB_Connector import DBConnector
+from DB_operations import create_products_table, get_db_connection
 
 def first_model_learn(df_first):
     df_first_copy = df_first.copy()
@@ -34,13 +35,31 @@ def use_model_predict(df_first, df_next):
 
     return df_preduction
 
+# Конфигурация подключения
+DB_CONFIG = {
+    'ssh_host': "dobroteka.tomsk.digital",
+    'ssh_user': "roman",
+    'ssh_pkey': "C:/Users/Asus/.ssh/id_ed25519",
+    'db_host': "localhost",
+    'db_port': 6432,
+    'db_name': "test",
+    'db_user': "testuser",
+    'db_password': "eintestuser"
+}
+
 def main():
     df_first = pd.read_csv("Dataframe_500_tovars_magazins.csv", parse_dates=["Дата"])
     df_next = pd.read_csv("test_df.csv", parse_dates=["Дата"])
 
-    first_learning_model = first_model_learn(df_first)
-    # if os.path.exists('catboost_model.cbm'):
-    #     y_pred = model_predict(df_encoding)
+    # first_learning_model = first_model_learn(df_first)
+    # Инициализация подключения
+    db = get_db_connection(DB_CONFIG)
+
+    # Работа с БД
+    create_products_table(db)
+
+
+
 
 
 if __name__ == "__main__":
