@@ -6,7 +6,7 @@ from Sales_recovery import Recovery_sales
 from First_model_learning import First_learning_model
 from Next_model_predict import Use_model_predict
 from DB_Connector import DBConnector
-from DB_operations import create_products_table, get_db_connection
+from DB_operations import Create_tables
 
 def first_model_learn(df_first):
     df_first_copy = df_first.copy()
@@ -51,12 +51,12 @@ def main():
     df_first = pd.read_csv("Dataframe_500_tovars_magazins.csv", parse_dates=["Дата"])
     df_next = pd.read_csv("test_df.csv", parse_dates=["Дата"])
 
-    # first_learning_model = first_model_learn(df_first)
-    # Инициализация подключения
-    db = get_db_connection(DB_CONFIG)
+    first_learning_model = first_model_learn(df_first)
 
+    # Инициализация подключения
+    # db = get_db_connection(DB_CONFIG)
     # Работа с БД
-    create_products_table(db)
+    # create_products_table(db)
 
 
 
