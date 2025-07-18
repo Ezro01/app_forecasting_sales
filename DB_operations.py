@@ -1,6 +1,8 @@
 from DB_Connector import DBConnector
 import pickle
 import gzip
+import pandas as pd
+from psycopg2 import sql
 
 class Create_tables:
     def create_origin_data_table(self, db_connector):
@@ -353,6 +355,313 @@ class Create_tables:
         except Exception as e:
             print(f"Ошибка при работе с таблицей {table_name}: {e}")
             raise
+
+class DataLoader:
+    def __init__(self, db_connector):
+        self.db = db_connector
+        self.table_configs = {
+            "Исходные_данные_продаж": {
+                "pk_columns": ["Дата", "Магазин", "Товар"],
+                "column_mapping": {
+                    # DataFrame column: DB column
+                    'Дата': 'Дата',
+                    'Магазин': 'Магазин',
+                    'Товар': 'Товар',
+                    'Цена': 'Цена',
+                    'Акция': 'Акция',
+                    'Выходной': 'Выходной',
+
+                    'Категория': 'Категория',
+                    'ПотребГруппа': 'ПотребГруппа',
+                    'МНН': 'МНН',
+
+                    'Продано': 'Продано_шт',
+                    'Остаток': 'Остаток_шт',
+                    'Поступило': 'Поступило_шт',
+                    'Заказ': 'Заказ_шт',
+                    'КоличествоЧеков': 'КоличествоЧеков',
+
+                    'ПроданоСеть': 'ПроданоСеть_шт',
+                    'ОстатокСеть': 'ОстатокСеть_шт',
+                    'ПоступилоСеть': 'ПоступилоСеть_шт',
+                    'КоличествоЧековСеть': 'КоличествоЧековСеть_шт'
+                },
+                "type_mapping": {
+                    'Дата': 'datetime64[ns]',
+                    'Магазин': 'str',
+                    'Товар': 'str',
+                    'Цена': 'float32',
+                    'Акция': 'bool',
+                    'Выходной': 'bool',
+
+                    'Категория': 'str',
+                    'ПотребГруппа': 'str',
+                    'МНН': 'str',
+
+                    'Продано': 'float32',
+                    'Остаток': 'float32',
+                    'Поступило':  'int32',
+                    'Заказ': 'Заказ_шт',
+                    'КоличествоЧеков': 'int32',
+
+                    'ПроданоСеть': 'float32',
+                    'ОстатокСеть': 'float32',
+                    'ПоступилоСеть':  'int32',
+                    'КоличествоЧековСеть': 'int32',
+                }
+            },
+            "Обогащённые_данные_продаж": {
+                "pk_columns": ["Дата", "Магазин", "Товар"],
+                "column_mapping": {
+                    # DataFrame column: DB column
+                    'Дата': 'Дата',
+                    'Магазин': 'Магазин',
+                    'Товар': 'Товар',
+                    'Цена': 'Цена',
+                    'Акция': 'Акция',
+                    'Выходной': 'Выходной',
+
+                    'Категория': 'Категория',
+                    'ПотребГруппа': 'ПотребГруппа',
+                    'МНН': 'МНН',
+
+                    'Продано': 'Продано_шт',
+                    'Остаток': 'Остаток_шт',
+                    'Поступило': 'Поступило_шт',
+                    'Заказ': 'Заказ_шт',
+                    'КоличествоЧеков': 'КоличествоЧеков',
+
+                    'ПроданоСеть': 'ПроданоСеть_шт',
+                    'ОстатокСеть': 'ОстатокСеть_шт',
+                    'ПоступилоСеть': 'ПоступилоСеть_шт',
+                    'КоличествоЧековСеть': 'КоличествоЧековСеть_шт',
+
+                    'ДеньНедели': 'ДеньНедели',
+                    'День': 'День',
+                    'Месяц': 'Месяц',
+                    'Год': 'Год',
+
+                    'Сезонность': 'Сезонность',
+                    'Сезонность_точн': 'Сезонность_точн',
+                    'Температура (°C)': 'Температура (°C)',
+                    'Давление (мм рт. ст.)': 'Давление (мм рт. ст.)'
+                },
+                "type_mapping": {
+                    'Дата': 'datetime64[ns]',
+                    'Магазин': 'str',
+                    'Товар': 'str',
+                    'Цена': 'float32',
+                    'Акция': 'bool',
+                    'Выходной': 'bool',
+
+                    'Категория': 'str',
+                    'ПотребГруппа': 'str',
+                    'МНН': 'str',
+
+                    'Продано': 'int32',
+                    'Остаток': 'int32',
+                    'Поступило':  'int32',
+                    'Заказ': 'int32',
+                    'КоличествоЧеков': 'int32',
+
+                    'ПроданоСеть': 'int32',
+                    'ОстатокСеть': 'int32',
+                    'ПоступилоСеть':  'int32',
+                    'КоличествоЧековСеть': 'int32',
+
+                    'ДеньНедели': 'int32',
+                    'День': 'int32',
+                    'Месяц': 'int32',
+                    'Год': 'int32',
+
+                    'Сезонность': 'str',
+                    'Сезонность_точн': 'bool',
+                    'Температура (°C)': 'float32',
+                    'Давление (мм рт. ст.)': 'float32'
+                }
+            },
+            "Восстановленные_данные_продаж": {
+                "pk_columns": ["Дата", "Магазин", "Товар"],
+                "column_mapping": {
+                    # DataFrame column: DB column
+                    'Дата': 'Дата',
+                    'Магазин': 'Магазин',
+                    'Товар': 'Товар',
+                    'Цена': 'Цена',
+                    'Акция': 'Акция',
+                    'Выходной': 'Выходной',
+
+                    'Категория': 'Категория',
+                    'ПотребГруппа': 'ПотребГруппа',
+                    'МНН': 'МНН',
+
+                    'Продано': 'Продано_шт',
+                    'Остаток': 'Остаток_шт',
+                    'Поступило': 'Поступило_шт',
+                    'Заказ': 'Заказ_шт',
+                    'КоличествоЧеков': 'КоличествоЧеков',
+
+                    'ПроданоСеть': 'ПроданоСеть_шт',
+                    'ОстатокСеть': 'ОстатокСеть_шт',
+                    'ПоступилоСеть': 'ПоступилоСеть_шт',
+                    'КоличествоЧековСеть': 'КоличествоЧековСеть_шт',
+
+                    'ДеньНедели': 'ДеньНедели',
+                    'День': 'День',
+                    'Месяц': 'Месяц',
+                    'Год': 'Год',
+
+                    'Сезонность': 'Сезонность',
+                    'Сезонность_точн': 'Сезонность_точн',
+                    'Температура (°C)': 'Температура (°C)',
+                    'Давление (мм рт. ст.)': 'Давление (мм рт. ст.)',
+
+                    "Медианный_лаг_в_днях" : 'Медианный_лаг_в_днях',
+                    "Продано_правка" : 'Продано_правка',
+                    "Смоделированные_заказы" : 'Заказы_правка',
+                    "Поступило_правка" : 'Поступило_правка',
+                    "Остаток_правка" : 'Остаток_правка'
+                },
+                "type_mapping": {
+                    'Дата': 'datetime64[ns]',
+                    'Магазин': 'str',
+                    'Товар': 'str',
+                    'Цена': 'float32',
+                    'Акция': 'bool',
+                    'Выходной': 'bool',
+
+                    'Категория': 'str',
+                    'ПотребГруппа': 'str',
+                    'МНН': 'str',
+
+                    'Продано': 'int32',
+                    'Остаток': 'int32',
+                    'Поступило':  'int32',
+                    'Заказ': 'int32',
+                    'КоличествоЧеков': 'int32',
+
+                    'ПроданоСеть': 'int32',
+                    'ОстатокСеть': 'int32',
+                    'ПоступилоСеть':  'int32',
+                    'КоличествоЧековСеть': 'int32',
+
+                    'ДеньНедели': 'int32',
+                    'День': 'int32',
+                    'Месяц': 'int32',
+                    'Год': 'int32',
+
+                    'Сезонность': 'str',
+                    'Сезонность_точн': 'bool',
+                    'Температура (°C)': 'float32',
+                    'Давление (мм рт. ст.)': 'float32',
+
+                    "Медианный_лаг_в_днях" : 'float32',
+                    "Продано_правка" : 'int32',
+                    "Смоделированные_заказы" : 'int32',
+                    "Поступило_правка" : 'int32',
+                    "Остаток_правка" : 'int32'
+                }
+            }
+        }
+
+    def _prepare_data(self, df, table_name):
+        """Подготовка данных перед загрузкой"""
+        if table_name not in self.table_configs:
+            raise ValueError(f"Неизвестная таблица: {table_name}")
+
+        config = self.table_configs[table_name]
+
+        # Проверяем наличие всех необходимых столбцов в DataFrame
+        missing_cols = set(config["column_mapping"].keys()) - set(df.columns)
+        if missing_cols:
+            raise ValueError(f"Отсутствуют обязательные столбцы в DataFrame: {missing_cols}")
+
+        # Переименовываем столбцы согласно маппингу
+        df = df.rename(columns=config["column_mapping"])
+
+        # Приводим типы данных
+        type_mapping = {db_col: dtype
+                        for df_col, db_col in config["column_mapping"].items()
+                        for dtype in [config["type_mapping"].get(df_col)]
+                        if dtype}
+
+        return df.astype({col: dtype for col, dtype in type_mapping.items() if col in df.columns})
+
+    def load_data(self, df, table_name, batch_size=1000, on_conflict_update=True):
+        """
+        Универсальный метод для загрузки данных в указанную таблицу
+
+        :param df: DataFrame с данными (с исходными названиями столбцов)
+        :param table_name: Название таблицы в БД
+        :param batch_size: Размер пакета для вставки
+        :param on_conflict_update: Обновлять существующие записи при конфликте
+        """
+        try:
+            if table_name not in self.table_configs:
+                raise ValueError(f"Таблица {table_name} не поддерживается")
+
+            # Подготавливаем данные (переименование + приведение типов)
+            df = self._prepare_data(df, table_name)
+            config = self.table_configs[table_name]
+
+            # Получаем список столбцов в БД после переименования
+            db_columns = list(config["column_mapping"].values())
+
+            # Формируем SQL запрос
+            insert_sql = sql.SQL("INSERT INTO {} ({}) VALUES ({})").format(
+                sql.Identifier(table_name),
+                sql.SQL(', ').join(map(sql.Identifier, db_columns)),
+                sql.SQL(', ').join([sql.Placeholder()] * len(db_columns))
+            )
+
+            # Добавляем обработку конфликтов если нужно
+            if on_conflict_update and config["pk_columns"]:
+                conflict_cols = ', '.join([f'"{col}"' for col in config["pk_columns"]])
+                update_cols = []
+
+                for df_col, db_col in config["column_mapping"].items():
+                    if db_col not in config["pk_columns"]:
+                        update_cols.append(f'"{db_col}" = EXCLUDED."{db_col}"')
+
+                if update_cols:
+                    insert_sql = sql.SQL("{} ON CONFLICT ({}) DO UPDATE SET {}").format(
+                        insert_sql,
+                        sql.SQL(conflict_cols),
+                        sql.SQL(', ').join(map(sql.SQL, update_cols))
+                    )
+
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    # Пакетная вставка
+                    for i in range(0, len(df), batch_size):
+                        batch = df.iloc[i:i + batch_size]
+
+                        # Формируем записи с правильным порядком столбцов
+                        records = [tuple(row[db_col] for db_col in db_columns)
+                                   for _, row in batch.iterrows()]
+
+                        cursor.executemany(insert_sql, records)
+                        conn.commit()
+                        print(f"Загружено {min(i + batch_size, len(df))}/{len(df)} записей в {table_name}")
+
+                    print(f"✅ Успешно загружено {len(df)} записей в {table_name}")
+
+        except Exception as e:
+            print(f"❌ Ошибка при загрузке данных в {table_name}: {str(e)}")
+            raise
+
+    # Специализированные методы для удобства
+    def load_to_origin_table(self, df, batch_size=1000):
+        """Загрузка в Исходные_данные_продаж"""
+        self.load_data(df, "Исходные_данные_продаж", batch_size)
+
+    def load_to_enriched_table(self, df, batch_size=1000):
+        """Загрузка в Обогащённые_данные_продаж"""
+        self.load_data(df, "Обогащённые_данные_продаж", batch_size)
+
+    def load_to_recovery_table(self, df, batch_size=1000):
+        """Загрузка в Восстановленные_данные_продаж"""
+        self.load_data(df, "Восстановленные_данные_продаж", batch_size)
 
 class ModelStorage:
     def __init__(self, db_connector):
