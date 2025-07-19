@@ -7,6 +7,8 @@ from First_model_learning import First_learning_model
 from Next_model_predict import Use_model_predict
 from DB_Connector import DBConnector
 from DB_operations import Create_tables
+from DB_operations import DataLoader
+from DB_operations import get_db_connection
 
 def first_model_learn(df_first):
     df_first_copy = df_first.copy()
@@ -14,6 +16,8 @@ def first_model_learn(df_first):
     processor = Preprocessing_data()
     sales_recovery = Recovery_sales()
     first_model_learn = First_learning_model()
+    create_tables = Create_tables()
+
 
     df_clean = processor.first_preprocess_data(df_first_copy)
     df_recovery = sales_recovery.first_full_sales_recovery(df_clean)
@@ -48,18 +52,21 @@ DB_CONFIG = {
 }
 
 def main():
+    # Инициализация подключения
+    db = get_db_connection(DB_CONFIG)
+    create_tables = Create_tables()
+    data_loader = DataLoader(db)
+
     df_first = pd.read_csv("Dataframe_500_tovars_magazins.csv", parse_dates=["Дата"])
     df_next = pd.read_csv("test_df.csv", parse_dates=["Дата"])
 
-    first_learning_model = first_model_learn(df_first)
+    create_tables.create_origin_data_table(db)
+    data_loader.load_data(df_first, "Исходные_данные_продаж")
+    # first_learning_model = first_model_learn(df_first)
 
-    # Инициализация подключения
-    # db = get_db_connection(DB_CONFIG)
+
     # Работа с БД
     # create_products_table(db)
-
-
-
 
 
 if __name__ == "__main__":

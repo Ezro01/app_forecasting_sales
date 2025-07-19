@@ -289,7 +289,7 @@ class Create_tables:
             print(f"Ошибка при работе с таблицей {table_name}: {e}")
             raise
 
-    def create_saved_ml_data_table(self, db_connector):
+    def saved_ml_data_table(self, db_connector):
         """Создает таблицу Обогащённые_данные_продаж если она не существует"""
         table_name = "ML_данные_для_работы_модели"
 
@@ -401,7 +401,7 @@ class DataLoader:
                     'Продано': 'float32',
                     'Остаток': 'float32',
                     'Поступило':  'int32',
-                    'Заказ': 'Заказ_шт',
+                    'Заказ': 'int32',
                     'КоличествоЧеков': 'int32',
 
                     'ПроданоСеть': 'float32',
@@ -410,7 +410,7 @@ class DataLoader:
                     'КоличествоЧековСеть': 'int32',
                 }
             },
-            "Обогащённые_данные_продаж": {
+            "Целевые_обогащённые_данные_продаж": {
                 "pk_columns": ["Дата", "Магазин", "Товар"],
                 "column_mapping": {
                     # DataFrame column: DB column
@@ -587,7 +587,7 @@ class DataLoader:
 
         return df.astype({col: dtype for col, dtype in type_mapping.items() if col in df.columns})
 
-    def load_data(self, df, table_name, batch_size=1000, on_conflict_update=True):
+    def load_data(self, df, table_name, batch_size=100000, on_conflict_update=True):
         """
         Универсальный метод для загрузки данных в указанную таблицу
 
@@ -651,15 +651,15 @@ class DataLoader:
             raise
 
     # Специализированные методы для удобства
-    def load_to_origin_table(self, df, batch_size=1000):
+    def load_to_origin_table(self, df, batch_size=100000):
         """Загрузка в Исходные_данные_продаж"""
         self.load_data(df, "Исходные_данные_продаж", batch_size)
 
-    def load_to_enriched_table(self, df, batch_size=1000):
+    def load_to_enriched_table(self, df, batch_size=100000):
         """Загрузка в Обогащённые_данные_продаж"""
         self.load_data(df, "Обогащённые_данные_продаж", batch_size)
 
-    def load_to_recovery_table(self, df, batch_size=1000):
+    def load_to_recovery_table(self, df, batch_size=100000):
         """Загрузка в Восстановленные_данные_продаж"""
         self.load_data(df, "Восстановленные_данные_продаж", batch_size)
 
