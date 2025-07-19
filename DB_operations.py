@@ -49,7 +49,7 @@ class Create_tables:
                                 "ПоступилоСеть_шт" int4 NOT NULL,
                                 "КоличествоЧековСеть_шт" float4 NOT NULL,
                                 
-                                CONSTRAINT data_pk PRIMARY KEY ("Дата", "Магазин", "Товар")
+                                CONSTRAINT data_pk_origin PRIMARY KEY ("Дата", "Магазин", "Товар")
                             )
                         """)
                         print(f"Таблица {table_name} успешно создана")
@@ -145,7 +145,7 @@ class Create_tables:
                                 "Температура (°C)" float4 NOT NULL,
                                 "Давление (мм рт. ст.)" float4 NOT NULL,
                                 
-                                CONSTRAINT data_pk PRIMARY KEY ("Дата", "Магазин", "Товар")
+                                CONSTRAINT data_pk_enriched PRIMARY KEY ("Дата", "Магазин", "Товар")
                             )
                         """)
                         print(f"Таблица {table_name} успешно создана")
@@ -247,7 +247,7 @@ class Create_tables:
                                 "Поступило_правка" int4 NOT NULL,
                                 "Остаток_правка" int4 NOT NULL,
                                 
-                                CONSTRAINT data_pk PRIMARY KEY ("Дата", "Магазин", "Товар")
+                                CONSTRAINT data_pk_recovery PRIMARY KEY ("Дата", "Магазин", "Товар")
                             )
                         """)
                         print(f"Таблица {table_name} успешно создана")
@@ -812,11 +812,8 @@ class ModelStorage:
             return False
 
 def get_db_connection(config):
-    """Инициализирует и возвращает DBConnector"""
+    """Инициализирует и возвращает DBConnector для локальной БД"""
     return DBConnector(
-        ssh_host=config['ssh_host'],
-        ssh_user=config['ssh_user'],
-        ssh_pkey=config['ssh_pkey'],
         db_host=config['db_host'],
         db_port=config['db_port'],
         db_name=config['db_name'],

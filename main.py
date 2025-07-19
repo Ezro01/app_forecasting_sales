@@ -39,34 +39,37 @@ def use_model_predict(df_first, df_next):
 
     return df_preduction
 
-# Конфигурация подключения
+# Конфигурация подключения к локальной БД
 DB_CONFIG = {
-    'ssh_host': "dobroteka.tomsk.digital",
-    'ssh_user': "roman",
-    'ssh_pkey': "C:/Users/Asus/.ssh/id_ed25519",
-    'db_host': "localhost",
-    'db_port': 6432,
-    'db_name': "test",
-    'db_user': "testuser",
-    'db_password': "eintestuser"
+    'db_host': "localhost",  # или "127.0.0.1"
+    'db_port': 5432,         # стандартный порт PostgreSQL
+    'db_name': "BD_Dobroteka",  # имя вашей локальной БД
+    'db_user': "postgres",   # пользователь БД
+    'db_password': "1234"  # пароль от БД
 }
 
 def main():
-    # Инициализация подключения
+    # Инициализация подключения к локальной БД
     db = get_db_connection(DB_CONFIG)
     create_tables = Create_tables()
     data_loader = DataLoader(db)
 
+    # Создание таблиц в локальной БД
+    print("Создание таблиц в локальной БД...")
+    create_tables.create_origin_data_table(db)
+    create_tables.create_enriched_data_table(db)
+    create_tables.create_recovery_data_table(db)
+    create_tables.saved_ml_data_table(db)
+
     df_first = pd.read_csv("Dataframe_500_tovars_magazins.csv", parse_dates=["Дата"])
     df_next = pd.read_csv("test_df.csv", parse_dates=["Дата"])
 
-    create_tables.create_origin_data_table(db)
+    # Загрузка данных в локальную БД
+    print("Загрузка данных в локальную БД...")
     data_loader.load_data(df_first, "Исходные_данные_продаж")
+    print("Данные успешно загружены в локальную БД!")
+    
     # first_learning_model = first_model_learn(df_first)
-
-
-    # Работа с БД
-    # create_products_table(db)
 
 
 if __name__ == "__main__":
