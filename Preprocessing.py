@@ -176,14 +176,31 @@ class Preprocessing_data:
         type_int = ['Продано', 'Поступило', 'Остаток', 'КоличествоЧеков', 'Заказ',
                     'ПроданоСеть', 'ПоступилоСеть', 'ОстатокСеть', 'КоличествоЧековСеть',
                     'ДеньНедели', 'День', 'Месяц', 'Год']
-        type_float = ['Цена', 'Температура (°C)', 'Давление (мм рт. ст.)']
+        type_float = ['Цена']
         type_bool = ['Акция', 'Выходной', 'Сезонность_точн']
 
+        # Проверяем наличие столбцов погоды и добавляем их в соответствующие списки
+        if 'Температура (°C)' in df.columns:
+            type_float.append('Температура (°C)')
+        if 'Давление (мм рт. ст.)' in df.columns:
+            type_float.append('Давление (мм рт. ст.)')
+
         df['Дата'] = pd.to_datetime(df['Дата'], format='%d.%m.%Y')
-        df[type_objects] = df[type_objects].astype(object)
-        df[type_int] = df[type_int].astype(int)
-        df[type_float] = df[type_float].astype(float)
-        df[type_bool] = df[type_bool].astype(bool)
+        
+        # Приводим типы только для существующих столбцов
+        existing_objects = [col for col in type_objects if col in df.columns]
+        existing_int = [col for col in type_int if col in df.columns]
+        existing_float = [col for col in type_float if col in df.columns]
+        existing_bool = [col for col in type_bool if col in df.columns]
+        
+        if existing_objects:
+            df[existing_objects] = df[existing_objects].astype(str)
+        if existing_int:
+            df[existing_int] = df[existing_int].astype(int)
+        if existing_float:
+            df[existing_float] = df[existing_float].astype(float)
+        if existing_bool:
+            df[existing_bool] = df[existing_bool].astype(bool)
 
         print('Типы данных скорректированы')
         return df
@@ -205,7 +222,7 @@ class Preprocessing_data:
 
         try:
             # Преобразуем даты в нужный формат
-            df['Дата'] = pd.to_datetime(df['Дата'], format='%d.%m.%Y')
+            df['Дата'] = pd.to_datetime(df['Дата']) #, format='%d.%m.%Y'
             start_date = df['Дата'].min().strftime('%Y-%m-%d')
             end_date = df['Дата'].max().strftime('%Y-%m-%d')
 
@@ -266,9 +283,27 @@ class Preprocessing_data:
             })
 
         except requests.exceptions.RequestException as e:
-            print(f"Ошибка при запросе к API: {e}")
+            print(f"❌ Ошибка при запросе к API погоды: {e}")
+            print("🔧 Возможные причины:")
+            print("   - Нет подключения к интернету")
+            print("   - API временно недоступен")
+            print("   - Превышен лимит запросов")
+            print("   - Неправильный URL или параметры")
         except Exception as e:
-            print(f"Произошла ошибка: {e}")
+            print(f"❌ Произошла ошибка при получении погодных данных: {e}")
+
+        # Заполняем NaN значения для столбцов погоды, если они отсутствуют
+        if 'Температура (°C)' not in df.columns:
+            df['Температура (°C)'] = 0.0
+            print("📝 Добавлен столбец 'Температура (°C)' со значением по умолчанию (0.0)")
+        else:
+            df['Температура (°C)'] = df['Температура (°C)'].fillna(0.0)
+            
+        if 'Давление (мм рт. ст.)' not in df.columns:
+            df['Давление (мм рт. ст.)'] = 0.0  # стандартное атмосферное давление
+            print("📝 Добавлен столбец 'Давление (мм рт. ст.)' со значением по умолчанию (0.0)")
+        else:
+            df['Давление (мм рт. ст.)'] = df['Давление (мм рт. ст.)'].fillna(0.0)
 
         # df = df.drop('key_0', axis=1)
         print('\nПогода и атмосферное давление добавлены')
@@ -298,7 +333,8 @@ class Preprocessing_data:
         print('\nДобавлена "Точная сезоннсть" в булевом формате для каждого дня')
 
         df_temp = self.add_weather_data(df_define)
-        df_temp = df_temp.drop('key_0', axis=1)
+        if 'key_0' in df_temp.columns:
+            df_temp = df_temp.drop('key_0', axis=1)
 
         df_resilt_clining = self.data_type_refactor(df_temp)
 
@@ -310,6 +346,8 @@ class Preprocessing_data:
 
         print(df_temp.isna().sum())
         print(df_temp.info())
+
+        df_resilt_clining.sort_values(by=['Дата', 'Магазин', 'Товар'])
 
         return df_resilt_clining
 
@@ -358,6 +396,8 @@ class Preprocessing_data:
 
         # print(df_temp.isna().sum())
         # print(df_temp.info())
+
+        df_result_cleaning.sort_values(by=['Дата', 'Магазин', 'Товар'])
 
         return df_result_cleaning
 

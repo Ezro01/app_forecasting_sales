@@ -469,6 +469,8 @@ class Recovery_sales():
         execution_time = end_time - start_time
         print(f"Время выполнения: {execution_time // 60} минут {execution_time % 60} секунд\n")
 
+        df_full_recovery.sort_values(by=['Дата', 'Магазин', 'Товар'])
+
         return df_full_recovery
 
     def next_full_sales_recovery(self, df_first, df_next):
@@ -503,6 +505,8 @@ class Recovery_sales():
                              'Температура (°C)', 'Давление (мм рт. ст.)', 'Пуассон_распр',
                              'Продано_правка', 'Медианный_лаг_в_днях',
                              'Смоделированные_заказы', 'Поступило_правка', 'Остаток_правка']]
+
+        df_full_recovery.sort_values(by=['Дата', 'Магазин', 'Товар'])
 
         return df_full_recovery
 

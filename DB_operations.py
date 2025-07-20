@@ -2,6 +2,8 @@ from DB_Connector import DBConnector
 import pickle
 import gzip
 import pandas as pd
+import time
+import datetime
 from psycopg2 import sql
 
 class Create_tables:
@@ -387,7 +389,7 @@ class DataLoader:
                     'КоличествоЧековСеть': 'КоличествоЧековСеть_шт'
                 },
                 "type_mapping": {
-                    'Дата': 'datetime64[ns]',
+                    'Дата': 'date',
                     'Магазин': 'str',
                     'Товар': 'str',
                     'Цена': 'float32',
@@ -410,7 +412,7 @@ class DataLoader:
                     'КоличествоЧековСеть': 'int32',
                 }
             },
-            "Целевые_обогащённые_данные_продаж": {
+            "Обогащённые_данные_продаж": {
                 "pk_columns": ["Дата", "Магазин", "Товар"],
                 "column_mapping": {
                     # DataFrame column: DB column
@@ -447,7 +449,7 @@ class DataLoader:
                     'Давление (мм рт. ст.)': 'Давление (мм рт. ст.)'
                 },
                 "type_mapping": {
-                    'Дата': 'datetime64[ns]',
+                    'Дата': 'date',
                     'Магазин': 'str',
                     'Товар': 'str',
                     'Цена': 'float32',
@@ -523,7 +525,7 @@ class DataLoader:
                     "Остаток_правка" : 'Остаток_правка'
                 },
                 "type_mapping": {
-                    'Дата': 'datetime64[ns]',
+                    'Дата': 'date',
                     'Магазин': 'str',
                     'Товар': 'str',
                     'Цена': 'float32',
@@ -571,13 +573,30 @@ class DataLoader:
 
         config = self.table_configs[table_name]
 
-        # Проверяем наличие всех необходимых столбцов в DataFrame
-        missing_cols = set(config["column_mapping"].keys()) - set(df.columns)
+        # Определяем необязательные столбцы (которые могут отсутствовать)
+        optional_columns = {'Температура (°C)', 'Давление (мм рт. ст.)'}
+        
+        # Проверяем наличие обязательных столбцов в DataFrame
+        required_columns = set(config["column_mapping"].keys()) - optional_columns
+        missing_cols = required_columns - set(df.columns)
         if missing_cols:
             raise ValueError(f"Отсутствуют обязательные столбцы в DataFrame: {missing_cols}")
 
+        # Добавляем недостающие необязательные столбцы с значениями по умолчанию
+        for col in optional_columns:
+            if col in config["column_mapping"] and col not in df.columns:
+                if col == 'Температура (°C)':
+                    df[col] = 0.0
+                elif col == 'Давление (мм рт. ст.)':
+                    df[col] = 0.0
+                print(f"📝 Добавлен столбец {col} со значением по умолчанию")
+
         # Переименовываем столбцы согласно маппингу
         df = df.rename(columns=config["column_mapping"])
+
+        # Обрабатываем дату отдельно - приводим к формату date
+        if 'Дата' in df.columns:
+            df['Дата'] = pd.to_datetime(df['Дата']).dt.date
 
         # Приводим типы данных
         type_mapping = {db_col: dtype
@@ -585,9 +604,93 @@ class DataLoader:
                         for dtype in [config["type_mapping"].get(df_col)]
                         if dtype}
 
-        return df.astype({col: dtype for col, dtype in type_mapping.items() if col in df.columns})
+        # Применяем типы данных, исключая дату (она уже обработана)
+        for col, dtype in type_mapping.items():
+            if col in df.columns and col != 'Дата':
+                try:
+                    if dtype == 'str':
+                        df[col] = df[col].astype(str)
+                    elif dtype == 'int32':
+                        df[col] = df[col].astype('int32')
+                    elif dtype == 'float32':
+                        df[col] = df[col].astype('float32')
+                    elif dtype == 'bool':
+                        df[col] = df[col].astype(bool)
+                except Exception as e:
+                    print(f"⚠️ Ошибка при приведении типа для столбца {col}: {e}")
+                    # Продолжаем с исходным типом
 
-    def load_data(self, df, table_name, batch_size=100000, on_conflict_update=True):
+        return df
+
+    def _check_existing_data(self, df, table_name):
+        """
+        Проверяет последние даты в БД и загружает только записи новее последней даты
+        
+        :param df: DataFrame с данными для проверки
+        :param table_name: Название таблицы в БД
+        :return: DataFrame только с записями новее последней даты в БД
+        """
+        if table_name not in self.table_configs:
+            raise ValueError(f"Таблица {table_name} не поддерживается")
+        
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    if 'Дата' in df.columns:
+                        print(f"🔍 Проверяем последние даты в таблице {table_name}...")
+                        print(f"📊 Исходный датасет содержит {len(df)} записей")
+                        
+                        # Получаем максимальную дату из исходного датасета
+                        max_date_df = pd.to_datetime(df['Дата']).max()
+                        print(f"📅 Максимальная дата в исходном датасете: {max_date_df.strftime('%Y-%m-%d')}")
+                        
+                        # Получаем максимальную дату из БД
+                        cursor.execute(f"""
+                            SELECT MAX("Дата") 
+                            FROM "{table_name}"
+                        """)
+                        result = cursor.fetchone()
+                        
+                        if result[0] is None:
+                            print("📥 Таблица пуста, загружаем все данные")
+                            return df
+                        
+                        max_date_db = result[0]
+                        print(f"📅 Максимальная дата в БД: {max_date_db.strftime('%Y-%m-%d')}")
+                        
+                        # Приводим даты к одному типу для корректного сравнения
+                        max_date_df_date = max_date_df.date()
+                        max_date_db_date = max_date_db if isinstance(max_date_db, datetime.date) else max_date_db.date()
+                        
+                        # Сравниваем даты
+                        if max_date_df_date <= max_date_db_date:
+                            print(f"✅ Все данные уже загружены (последняя дата в БД: {max_date_db.strftime('%Y-%m-%d')})")
+                            return pd.DataFrame()  # Возвращаем пустой DataFrame
+                        
+                        # Фильтруем записи новее последней даты в БД
+                        newer_records = df[pd.to_datetime(df['Дата']).dt.date > max_date_db_date].copy()
+                        
+                        if len(newer_records) > 0:
+                            print(f"📥 Найдено {len(newer_records)} записей новее {max_date_db.strftime('%Y-%m-%d')}")
+                            print(f"📅 Диапазон новых дат: {newer_records['Дата'].min()} - {newer_records['Дата'].max()}")
+                            return newer_records
+                        else:
+                            print("✅ Нет новых записей для загрузки")
+                            return pd.DataFrame()
+                    else:
+                        print("⚠️ Столбец 'Дата' не найден, загружаем без проверки существующих данных")
+                        return df
+                        
+        except Exception as e:
+            print(f"⚠️ Ошибка при проверке последних дат: {str(e)}")
+            print("🔄 Продолжаем загрузку без проверки существующих данных...")
+            return df
+        except RecursionError:
+            print("⚠️ Превышена максимальная глубина рекурсии при проверке данных")
+            print("🔄 Продолжаем загрузку без проверки существующих данных...")
+            return df
+
+    def load_data(self, df, table_name, batch_size=100000, on_conflict_update=True, check_existing=True):
         """
         Универсальный метод для загрузки данных в указанную таблицу
 
@@ -595,10 +698,24 @@ class DataLoader:
         :param table_name: Название таблицы в БД
         :param batch_size: Размер пакета для вставки
         :param on_conflict_update: Обновлять существующие записи при конфликте
+        :param check_existing: Проверять существующие данные перед загрузкой
         """
         try:
             if table_name not in self.table_configs:
                 raise ValueError(f"Таблица {table_name} не поддерживается")
+
+            # Проверяем существующие данные, если включено
+            if check_existing and len(df) > 0:
+                df_original = df.copy()  # Сохраняем оригинальный DataFrame для сравнения
+                print(f"🔍 Проверяем существующие данные в таблице {table_name}...")
+                df = self._check_existing_data(df, table_name)
+                
+                # Если нет новых данных для загрузки
+                if len(df) == 0:
+                    print(f"✅ Все данные уже существуют в таблице {table_name}")
+                    return
+                elif len(df) < len(df_original):
+                    print(f"📥 Загружаем только недостающие записи: {len(df)} из {len(df_original)}")
 
             # Подготавливаем данные (переименование + приведение типов)
             df = self._prepare_data(df, table_name)
@@ -651,17 +768,29 @@ class DataLoader:
             raise
 
     # Специализированные методы для удобства
-    def load_to_origin_table(self, df, batch_size=100000):
+    def load_to_origin_table(self, df, batch_size=100000, check_existing=True):
         """Загрузка в Исходные_данные_продаж"""
-        self.load_data(df, "Исходные_данные_продаж", batch_size)
+        self.load_data(df, "Исходные_данные_продаж", batch_size, check_existing=check_existing)
 
-    def load_to_enriched_table(self, df, batch_size=100000):
+    def load_to_enriched_table(self, df, batch_size=100000, check_existing=True):
         """Загрузка в Обогащённые_данные_продаж"""
-        self.load_data(df, "Обогащённые_данные_продаж", batch_size)
+        self.load_data(df, "Обогащённые_данные_продаж", batch_size, check_existing=check_existing)
 
-    def load_to_recovery_table(self, df, batch_size=100000):
+    def load_to_recovery_table(self, df, batch_size=100000, check_existing=True):
         """Загрузка в Восстановленные_данные_продаж"""
-        self.load_data(df, "Восстановленные_данные_продаж", batch_size)
+        self.load_data(df, "Восстановленные_данные_продаж", batch_size, check_existing=check_existing)
+
+    def force_load_to_origin_table(self, df, batch_size=100000):
+        """Принудительная загрузка в Исходные_данные_продаж (без проверки существующих)"""
+        self.load_data(df, "Исходные_данные_продаж", batch_size, check_existing=False)
+
+    def force_load_to_enriched_table(self, df, batch_size=100000):
+        """Принудительная загрузка в Обогащённые_данные_продаж (без проверки существующих)"""
+        self.load_data(df, "Обогащённые_данные_продаж", batch_size, check_existing=False)
+
+    def force_load_to_recovery_table(self, df, batch_size=100000):
+        """Принудительная загрузка в Восстановленные_данные_продаж (без проверки существующих)"""
+        self.load_data(df, "Восстановленные_данные_продаж", batch_size, check_existing=False)
 
 class ModelStorage:
     def __init__(self, db_connector):

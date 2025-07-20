@@ -9,19 +9,46 @@ from DB_Connector import DBConnector
 from DB_operations import Create_tables
 from DB_operations import DataLoader
 from DB_operations import get_db_connection
+from DB_operations import ModelStorage
 
-def first_model_learn(df_first):
+def create_tables(db):
+    create_tables = Create_tables()
+    print("Создание таблиц в локальной БД...")
+    create_tables.create_origin_data_table(db)
+    create_tables.create_enriched_data_table(db)
+    create_tables.create_recovery_data_table(db)
+    create_tables.saved_ml_data_table(db)
+
+def first_model_learn(df_first, db):
     df_first_copy = df_first.copy()
 
+    df_first_copy = df_first_copy.sort_values(by=['Дата', 'Магазин', 'Товар'])
+
+    data_loader = DataLoader(db)
     processor = Preprocessing_data()
     sales_recovery = Recovery_sales()
     first_model_learn = First_learning_model()
-    create_tables = Create_tables()
+
+
+    # Загрузка данных в локальную БД
+    print("Загрузка исходных данных данных в локальную БД...")
+    data_loader.load_to_origin_table(df_first_copy, batch_size=100000)
+    print("Исходные данные успешно загружены в локальную БД!")
 
 
     df_clean = processor.first_preprocess_data(df_first_copy)
+
+    # print("Загрузка исходных данных данных в локальную БД...")
+    # data_loader.load_to_enriched_table(df_clean, batch_size=100000)
+    # print("Исходные данные успешно загружены в локальную БД!")
+
     df_recovery = sales_recovery.first_full_sales_recovery(df_clean)
-    df_preduction = first_model_learn.first_learning_model(df_recovery)
+
+    print("Загрузка исходных данных данных в локальную БД...")
+    data_loader.load_to_recovery_table(df_recovery, batch_size=100000)
+    print("Исходные данные успешно загружены в локальную БД!")
+
+    df_preduction = first_model_learn.first_learning_model(df_recovery, db)
 
     return df_preduction
 
@@ -51,31 +78,16 @@ DB_CONFIG = {
 def main():
     # Инициализация подключения к локальной БД
     db = get_db_connection(DB_CONFIG)
-    create_tables = Create_tables()
-    data_loader = DataLoader(db)
-
+    
     # Создание таблиц в локальной БД
-    print("Создание таблиц в локальной БД...")
-    create_tables.create_origin_data_table(db)
-    create_tables.create_enriched_data_table(db)
-    create_tables.create_recovery_data_table(db)
-    create_tables.saved_ml_data_table(db)
+    create_tables(db)
 
     df_first = pd.read_csv("Dataframe_500_tovars_magazins.csv", parse_dates=["Дата"])
     df_next = pd.read_csv("test_df.csv", parse_dates=["Дата"])
 
-    # Загрузка данных в локальную БД
-    print("Загрузка данных в локальную БД...")
-    data_loader.load_data(df_first, "Исходные_данные_продаж")
-    print("Данные успешно загружены в локальную БД!")
-    
-    # first_learning_model = first_model_learn(df_first)
+
+    df_preduction = first_model_learn(df_first, db)
 
 
 if __name__ == "__main__":
     main()
-
-
-
-
-

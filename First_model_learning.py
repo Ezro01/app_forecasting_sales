@@ -4,6 +4,7 @@ import pandas as pd
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import catboost as cb
 import optuna
+from DB_operations import ModelStorage
 
 class First_learning_model:
     def add_lag_values(self, df):
@@ -153,63 +154,32 @@ class First_learning_model:
 
         return X_train, y_train, X_test, y_test, test_preduction
 
-    def optimize_catboost(self, X_train, y_train, X_test, y_test, cat_features):
-        def objective(trial):
-            params = {
-                'iterations': trial.suggest_int('iterations', 1000, 8000),
-                'learning_rate': trial.suggest_float('learning_rate', 0.005, 0.05, log=True),
-                'depth': trial.suggest_int('depth', 4, 10),
-                'l2_leaf_reg': trial.suggest_float('l2_leaf_reg', 1, 50),
-                'random_strength': trial.suggest_float('random_strength', 0.1, 5),
-                'bootstrap_type': trial.suggest_categorical('bootstrap_type', ['Bernoulli']),    # 'Poisson',
-                'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 50, 200),
-                'max_ctr_complexity': trial.suggest_int('max_ctr_complexity', 1, 4),
-                'loss_function': 'Huber:delta=0.5',
-                'has_time': True,
-                'cat_features': cat_features,
-                'task_type': 'CPU',
-                'devices': '0',
-                'early_stopping_rounds': 500,
-                'random_state': 42,
-                'verbose': False,
-                'eval_metric': 'RMSE',
-            }
+    def learning_catboost(self, X_train, y_train, X_test, y_test, cat_features):
 
-            model = cb.CatBoostRegressor(**params)
-            model.fit(
-                X_train, y_train,
-                eval_set=(X_test, y_test),
-                verbose=100 if trial.number == 0 else False,
-            )
-
-            return model.get_best_score()['validation']['RMSE']
-
-        study = optuna.create_study(direction='minimize')
-        study.optimize(objective, n_trials=5)
-
-        best_params = study.best_params
-        print("🔹 Лучшие параметры:", best_params)
-
-        # Обучаем финальную модель на всех train данных
-        best_model = cb.CatBoostRegressor(
-            **best_params,
+        model = cb.CatBoostRegressor(
+            iterations=3000,
+            eval_metric='RMSE',
             loss_function='Huber:delta=0.5',
             cat_features=cat_features,
             task_type='CPU',
             devices='0',
             early_stopping_rounds=200,
-            random_state=42,
-            eval_metric='RMSE',
             verbose=100,
+            random_state=42,
+            use_best_model=True,
         )
-        best_model.fit(X_train, y_train)
+
+        model.fit(
+            X_train, y_train,
+            eval_set=(X_test, y_test),
+        )
 
         # Предсказание на тестовых данных
-        y_pred = best_model.predict(X_test)
+        y_pred = model.predict(X_test)
 
-        best_model.save_model('catboost_model.cbm')
+        model.save_model('catboost_model.cbm')
 
-        return best_model, best_params, y_pred
+        return model, y_pred
 
     def result_sum(self, test_preduction):
         # Группировка по Магазин и Товар
@@ -316,7 +286,7 @@ class First_learning_model:
 
         return test_preduction_copy
 
-    def first_learning_model(self, df):
+    def first_learning_model(self, df, db):
         df_copy = df.copy()
 
         df_with_lags = self.add_lag_values(df_copy)
@@ -328,8 +298,8 @@ class First_learning_model:
         X_train, y_train, X_test, y_test, test_preduction = (
             self.train_and_test(df_encoding, numerical_columns, cat_columns))
 
-        best_model, best_params, y_pred = (
-            self.optimize_catboost(X_train, y_train, X_test, y_test, cat_columns))
+        model, y_pred = (
+            self.learning_catboost(X_train, y_train, X_test, y_test, cat_columns))
 
         test_prediction = self.view_results_refactor_values(test_preduction, y_pred, y_test)
 
@@ -337,6 +307,9 @@ class First_learning_model:
                                          .inverse_transform(test_prediction['Товар']))
         test_prediction['Магазин'] = (label_encoder_shop
                                            .inverse_transform(test_prediction['Магазин']))
+
+        model_storage = ModelStorage(db)
+        model_storage.save_models(label_encoder_product, label_encoder_shop, model, comment='first_learning_model')
 
         return test_prediction
 
