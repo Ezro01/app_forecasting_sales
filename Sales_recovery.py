@@ -473,20 +473,26 @@ class Recovery_sales():
 
         return df_full_recovery
 
-    def next_full_sales_recovery(self, df_first, df_next):
+    def next_full_sales_recovery(self, df_first, df_next, df_season_sales):
 
         df_first_copy = df_first.copy()
         df_next_copy = df_next.copy()
+        df_season_sales_copy = df_season_sales.copy()
 
-        df_first_poison = (df_first_copy[['Магазин', 'Товар', 'Пуассон_распр', 'Медианный_лаг_в_днях']].
-                           drop_duplicates().reset_index(drop=True))
+
+        df_first_poisson = (
+            df_season_sales_copy[['Магазин', 'Товар', 'Пуассон_распр', 'Медианный_лаг_в_днях']]
+            .drop_duplicates(subset=['Магазин', 'Товар'])
+            .reset_index(drop=True)
+        )
+
 
         df_next_poison = df_next_copy.merge(
-            df_first_poison[['Магазин', 'Товар', 'Пуассон_распр', 'Медианный_лаг_в_днях']],
+            df_first_poisson,
             on=['Магазин', 'Товар'],
-            how='inner'  # Только совпадающие строки
+            how='inner'  # Сохраняем все строки из df_next_copy
         )
-        print('Добавлено соответствие распределению Пуассона и Медианный лаг в днях')
+        print('Добавлено соответствие распределению Пуассона и Медианный лаг в днях')   
 
         df_next_poison['Продано_правка'] = df_next_poison['Продано'].copy()
         df_next_poison['Смоделированные_заказы'] = df_next_poison['Заказ'].copy()

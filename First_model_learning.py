@@ -73,6 +73,9 @@ class First_learning_model:
     def encoding_futures(self, df):
         df_encoding = df.copy()
 
+        encod_columns = ['Товар', 'Магазин', 'Категория', 'ПотребГруппа', 'МНН']
+        df_encoding[encod_columns] = df_encoding[encod_columns].astype(str)
+
         # Кодируем столбец 'Товар' с помощью LabelEncoder только для обучающих данных
         label_encoder_product = LabelEncoder()
         df_encoding['Товар'] = label_encoder_product.fit_transform(df_encoding['Товар'])
@@ -80,14 +83,14 @@ class First_learning_model:
         label_encoder_shop = LabelEncoder()
         df_encoding['Магазин'] = label_encoder_shop.fit_transform(df_encoding['Магазин'])
 
-        label_encoder = LabelEncoder()
-        df_encoding['Категория'] = label_encoder.fit_transform(df_encoding['Категория'])
+        label_encoder_category = LabelEncoder()
+        df_encoding['Категория'] = label_encoder_category.fit_transform(df_encoding['Категория'])
 
-        label_encoder_2 = LabelEncoder()
-        df_encoding['ПотребГруппа'] = label_encoder_2.fit_transform(df_encoding['ПотребГруппа'])
+        label_encoder_potreb_group = LabelEncoder()
+        df_encoding['ПотребГруппа'] = label_encoder_potreb_group.fit_transform(df_encoding['ПотребГруппа'])
 
-        label_encoder_3 = LabelEncoder()
-        df_encoding['МНН'] = label_encoder_3.fit_transform(df_encoding['МНН'])
+        label_encoder_mnn = LabelEncoder()
+        df_encoding['МНН'] = label_encoder_mnn.fit_transform(df_encoding['МНН'])
 
 
         numerical_columns = ['Цена',
@@ -116,7 +119,9 @@ class First_learning_model:
 
         print('Масштабирование данных выполнено')
 
-        return df_encoding, numerical_columns, cat_columns, label_encoder_product, label_encoder_shop
+        return (df_encoding, numerical_columns, cat_columns, label_encoder_product, 
+            label_encoder_shop, label_encoder_category, 
+            label_encoder_potreb_group, label_encoder_mnn, scaler)
 
     def train_and_test(self, df, numerical_columns, cat_columns):
         # Целевая переменная - Продажи_7д_вперёд
@@ -292,8 +297,11 @@ class First_learning_model:
         df_with_lags = self.add_lag_values(df_copy)
 
         (df_encoding, numerical_columns, cat_columns,
-         label_encoder_product, label_encoder_shop) = (
+         label_encoder_product, label_encoder_shop, 
+         label_encoder_category, label_encoder_potreb_group, 
+         label_encoder_mnn, scaler) = (
             self.encoding_futures(df_with_lags))
+
 
         X_train, y_train, X_test, y_test, test_preduction = (
             self.train_and_test(df_encoding, numerical_columns, cat_columns))
@@ -309,150 +317,6 @@ class First_learning_model:
                                            .inverse_transform(test_prediction['Магазин']))
 
         model_storage = ModelStorage(db)
-        model_storage.save_models(label_encoder_product, label_encoder_shop, model, comment='first_learning_model')
+        model_storage.save_models(label_encoder_product, label_encoder_shop, label_encoder_category, label_encoder_potreb_group, label_encoder_mnn, scaler, model, comment='first_learning_model')
 
         return test_prediction
-
-
-
-# 🔹 Лучшие параметры: {'iterations': 3639, 'learning_rate': 0.04499952517598313, 'depth': 6, 'l2_leaf_reg': 33.18064326468688, 'random_strength': 4.323500005207879, 'bootstrap_type': 'Poisson', 'min_data_in_leaf': 65, 'max_ctr_complexity': 2}
-# 0:	learn: 5.6515361	total: 28.7ms	remaining: 1m 44s
-# 100:	learn: 4.5972835	total: 2.56s	remaining: 1m 29s
-# 200:	learn: 3.9435019	total: 4.99s	remaining: 1m 25s
-# 300:	learn: 3.5066340	total: 7.43s	remaining: 1m 22s
-# 400:	learn: 3.2626511	total: 10.2s	remaining: 1m 22s
-# 500:	learn: 3.1107544	total: 12.9s	remaining: 1m 20s
-# 600:	learn: 3.0085215	total: 15.6s	remaining: 1m 18s
-# 700:	learn: 2.9158827	total: 18.3s	remaining: 1m 16s
-# 800:	learn: 2.8411816	total: 21s	remaining: 1m 14s
-# 900:	learn: 2.7856606	total: 23.7s	remaining: 1m 11s
-# 1000:	learn: 2.7412525	total: 26.4s	remaining: 1m 9s
-# 1100:	learn: 2.7063243	total: 29.1s	remaining: 1m 7s
-# 1200:	learn: 2.6779118	total: 31.8s	remaining: 1m 4s
-# 1300:	learn: 2.6589440	total: 34.6s	remaining: 1m 2s
-# 1400:	learn: 2.6446519	total: 37.4s	remaining: 59.7s
-# 1500:	learn: 2.6305871	total: 40.1s	remaining: 57.1s
-# 1600:	learn: 2.6190014	total: 42.8s	remaining: 54.5s
-# 1700:	learn: 2.6072308	total: 45.5s	remaining: 51.8s
-# 1800:	learn: 2.5969923	total: 48.2s	remaining: 49.2s
-# 1900:	learn: 2.5878280	total: 50.9s	remaining: 46.6s
-# 2000:	learn: 2.5793335	total: 53.7s	remaining: 43.9s
-# 2100:	learn: 2.5712396	total: 56.4s	remaining: 41.3s
-# 2200:	learn: 2.5637613	total: 59.1s	remaining: 38.6s
-# 2300:	learn: 2.5556848	total: 1m 1s	remaining: 36s
-# 2400:	learn: 2.5484596	total: 1m 4s	remaining: 33.3s
-# 2500:	learn: 2.5418277	total: 1m 7s	remaining: 30.6s
-# 2600:	learn: 2.5361106	total: 1m 10s	remaining: 28s
-# 2700:	learn: 2.5303465	total: 1m 12s	remaining: 25.3s
-# 2800:	learn: 2.5239607	total: 1m 15s	remaining: 22.6s
-# 2900:	learn: 2.5188136	total: 1m 18s	remaining: 19.9s
-# 3000:	learn: 2.5139653	total: 1m 21s	remaining: 17.2s
-# 3100:	learn: 2.5095200	total: 1m 23s	remaining: 14.5s
-# 3200:	learn: 2.5045780	total: 1m 26s	remaining: 11.8s
-# 3300:	learn: 2.4997665	total: 1m 29s	remaining: 9.13s
-# 3400:	learn: 2.4951682	total: 1m 31s	remaining: 6.42s
-# 3500:	learn: 2.4905915	total: 1m 34s	remaining: 3.73s
-# 3600:	learn: 2.4865180	total: 1m 37s	remaining: 1.02s
-# 3638:	learn: 2.4849874	total: 1m 38s	remaining: 0us
-# Root Mean Squared Error: 2.769055646413111
-# Mean Absolute Error: 0.6604010025062657
-#
-# Диффиктура (Реальное значение): 3002
-# Излишки (Реальное значение): 2268
-#
-# Диффиктура (Количество): 1999
-# Излишки (Количество): 850
-#
-# Идепльно предсказанных значений (Количество): 5131
-# Идепльно предсказанных значений (Реальное значение): 755
-#
-# Сумма реальных продаж за 7 дней: 7414
-# Сумма предсказанных продаж за 7 дней: 6680
-#
-# Распределение реальных значений:
-# Значение  Количество
-# 0          0        5287
-# 1          1        1651
-# 2          2         567
-# 3          3         154
-# 4          4          91
-# 5          5          58
-# 6          6          29
-# 7          7          17
-# 8          8          14
-# 9          9          16
-# 10        10          10
-# 11        11          14
-# 12        12           6
-# 13        13           8
-# 14        14           9
-# 15        15           7
-# 16        16           3
-# 17        17           3
-# 18        19           2
-# 19        20           1
-# 20        21           1
-# 21        24           1
-# 22        25           1
-# 23        26           1
-# 24        36           1
-# 25        38           1
-# 26        40           2
-# 27        42           1
-# 28        44           1
-# 29        46           1
-# 30        49           1
-# 31        52           1
-# 32        59           1
-# 33        61           1
-# 34        62           1
-# 35        64           2
-# 36        70           1
-# 37        76           1
-# 38        77           1
-# 39        79           1
-# 40        82           1
-# 41        84           1
-# 42        89           1
-# 43        90           1
-# 44        97           1
-# 45        98           1
-# 46       100           2
-# 47       103           1
-# 48       104           2
-#
-# Распределение предсказанных значений:
-# Значение  Количество
-# 0          0        6130
-# 1          1        1250
-# 2          2         264
-# 3          3         100
-# 4          4          38
-# 5          5          37
-# 6          6          17
-# 7          7          29
-# 8          8          17
-# 9          9          15
-# 10        10          14
-# 11        11          11
-# 12        12          13
-# 13        13           8
-# 14        14           2
-# 15        15           4
-# 16        16           1
-# 17        85           1
-# 18        86           1
-# 19        88           1
-# 20        95           1
-# 21        96           4
-# 22       102           6
-# 23       103           2
-# 24       104           2
-# 25       105           2
-# 26       106           3
-# 27       108           1
-# 28       109           1
-# 29       110           2
-# 30       111           1
-# 31       112           2
-# Общая разница между предсказанными и реальными значениями:  3732

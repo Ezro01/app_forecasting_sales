@@ -5,6 +5,35 @@ import pandas as pd
 import time
 
 class Preprocessing_data:
+    def rename_columns(self, df):
+        column_rename_map = {
+            'Дата': 'Дата',
+            'Магазин': 'Магазин',
+            'Товар': 'Товар',
+            'Цена': 'Цена',
+            'Акция': 'Акция',
+            'Выходной': 'Выходной',
+
+            'Категория': 'Категория',
+            'ПотребГруппа': 'ПотребГруппа',
+            'МНН': 'МНН',
+
+            'Продано_шт': 'Продано',
+            'Остаток_шт': 'Остаток',
+            'Поступило_шт': 'Поступило',
+            'Заказ_шт': 'Заказ',
+            'КоличествоЧеков_шт': 'КоличествоЧеков',
+
+            'ПроданоСеть_шт': 'ПроданоСеть',
+            'ОстатокСеть_шт': 'ОстатокСеть',
+            'ПоступилоСеть_шт': 'ПоступилоСеть',
+            'КоличествоЧековСеть_шт': 'КоличествоЧековСеть',
+        }
+
+        df = df.rename(columns=column_rename_map)
+
+        return df
+    
     def fill_zero_prices(self, series):
 
         series = series.astype(float).replace(0, np.nan).bfill().ffill()
@@ -25,20 +54,21 @@ class Preprocessing_data:
         return df
 
     def non_negative_values(self, df):
-        df['Продано'] = df['Продано'].clip(lower=0)
-        df['Остаток'] = df['Остаток'].clip(lower=0)
-        df['ПроданоСеть'] = df['ПроданоСеть'].clip(lower=0)
-        df['ОстатокСеть'] = df['ОстатокСеть'].clip(lower=0)
+        df_copy = df.copy()
+        df_copy['Продано'] = df_copy['Продано'].clip(lower=0)
+        df_copy['Остаток'] = df_copy['Остаток'].clip(lower=0)
+        df_copy['ПроданоСеть'] = df_copy['ПроданоСеть'].clip(lower=0)
+        df_copy['ОстатокСеть'] = df_copy['ОстатокСеть'].clip(lower=0)
         print('Отрицательные значения продаж и остатков приравнены к нулю')
 
-        df['МНН'] = df['МНН'].astype(object)
-        df['Магазин'] = df['Магазин'].astype(object)
+        df_copy['МНН'] = df_copy['МНН'].astype(object)
+        df_copy['Магазин'] = df_copy['Магазин'].astype(object)
 
-        df['МНН'] = df['МНН'].fillna('Не определено')
-        df['ПотребГруппа'] = df['ПотребГруппа'].fillna('Не определена')
+        df_copy['МНН'] = df_copy['МНН'].fillna('Не определено')
+        df_copy['ПотребГруппа'] = df_copy['ПотребГруппа'].fillna('Не определена')
         print('NA столбцов МНН и ПотребГруппа заполнены')
 
-        return df
+        return df_copy
 
     def clining_data(self, df):
         print("\nКоличество строк до фильтрации:", df.shape[0])
@@ -352,10 +382,15 @@ class Preprocessing_data:
         return df_resilt_clining
 
 
-    def next_preprocess_data(self, df_first, df_next):
+    def next_preprocess_data(self, df_first, df_next, df_season_sales):
         start_time = time.time()
 
         df_next_copy = df_next.copy()
+        df_first_copy = df_first.copy()
+        df_season_sales_copy = df_season_sales.copy()
+
+        df_next_copy = self.rename_columns(df_next_copy)
+        df_first_copy = self.rename_columns(df_first_copy)
 
         df_next_copy['Цена'] = ((df_next_copy.groupby(['Магазин', 'Товар'])['Цена']
                             .transform(self.fill_zero_prices)))
@@ -364,20 +399,43 @@ class Preprocessing_data:
 
         df_non_negative_values = self.non_negative_values(df_second_copy)
 
-        df_parse_dates = self.parse_dates(df_non_negative_values)
+        df_parse_dates = self.parse_dates(df_non_negative_values) 
+
+        print(df_season_sales_copy.info())
 
         # Сезонность + фильтрация
-        df_first_copy = df_first.copy()
-        df_first_season = (df_first_copy[['Магазин', 'Товар', 'Сезонность']]
-                           .drop_duplicates()
+        df_first_season = (df_season_sales_copy[['Магазин', 'Товар', 'Сезонность']]
+                           .drop_duplicates(subset=['Магазин', 'Товар'])
                            .reset_index(drop=True))
 
-        df_next_with_season = df_parse_dates.merge(
-            df_first_season[['Магазин', 'Товар', 'Сезонность']],
+
+        # Получаем уникальные пары из обоих датафреймов
+        df_parse_dates['Магазин'] = df_parse_dates['Магазин'].astype(str)
+        df_parse_dates['Товар'] = df_parse_dates['Товар'].astype(str)
+        df_first_season['Магазин'] = df_first_season['Магазин'].astype(str)
+        df_first_season['Товар'] = df_first_season['Товар'].astype(str)
+        
+        pairs_in_next = set(zip(df_parse_dates['Магазин'], df_parse_dates['Товар']))
+        pairs_in_season = set(zip(df_first_season['Магазин'], df_first_season['Товар']))
+
+        # Находим пересечение
+        common_pairs = pairs_in_next & pairs_in_season
+
+        print(f"Всего пар в df_parse_dates: {len(pairs_in_next)}")
+        print(f"Всего пар в df_first_season: {len(pairs_in_season)}")
+        print(f"Совпадающих пар: {len(common_pairs)}")
+
+        if len(common_pairs) == 0:
+            print("Внимание: Нет совпадающих пар Магазин+Товар для объединения!")
+        else:
+            print("Есть совпадающие пары, можно делать merge.")
+            df_next_with_season = df_parse_dates.merge(
+            df_first_season,
             on=['Магазин', 'Товар'],
             how='inner'  # Только совпадающие строки
         )
         print('Добавлена сезонность + отфильтрованы данные(Как в исходном датасете)')
+
 
         df_next_with_season['Сезонность_точн'] = (df_next_with_season
                                                     .apply(self.check_season
@@ -385,7 +443,9 @@ class Preprocessing_data:
         print('\nДобавлена "Точная сезоннсть" в булевом формате для каждого дня')
 
         df_temp = self.add_weather_data(df_next_with_season)
-        df_temp = df_temp.drop('key_0', axis=1)
+        
+        if 'key_0' in df_temp.columns:
+            df_temp = df_temp.drop('key_0', axis=1)
 
         df_result_cleaning = self.data_type_refactor(df_temp)
         print('\nДатасет отчищен')

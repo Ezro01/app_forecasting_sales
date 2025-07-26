@@ -6,6 +6,7 @@ import time
 import datetime
 from psycopg2 import sql
 
+
 class Create_tables:
     def create_origin_data_table(self, db_connector):
         """Создает таблицу Исходные_данные_продаж если она не существует"""
@@ -238,6 +239,7 @@ class Create_tables:
                                 "Месяц" int4 NOT NULL,
                                 "Год" int4 NOT NULL,
                                 
+                                "Пуассон_распр" bool NOT NULL,
                                 "Сезонность" varchar(50) NOT NULL,
                                 "Сезонность_точн" bool NOT NULL,
                                 "Температура (°C)" float4 NOT NULL,
@@ -316,6 +318,10 @@ class Create_tables:
                                 load_id SERIAL PRIMARY KEY,
                                 label_encoder_product BYTEA NOT NULL,
                                 label_encoder_shop BYTEA NOT NULL,
+                                label_encoder_category BYTEA NOT NULL,
+                                label_encoder_potreb_group BYTEA NOT NULL,
+                                label_encoder_mnn BYTEA NOT NULL,
+                                minmax_scaler BYTEA NOT NULL,
                                 catboost_model BYTEA NOT NULL,
                                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                 comment TEXT
@@ -326,6 +332,76 @@ class Create_tables:
                     # Проверка существования индексов
                     indexes_to_create = {
                         'load_id_idx': '"load_id"',
+                    }
+
+                    created_indexes = 0
+
+                    for index_name, column in indexes_to_create.items():
+                        cursor.execute(f"""
+                            SELECT EXISTS (
+                                SELECT FROM pg_indexes 
+                                WHERE indexname = %s 
+                                AND tablename = %s
+                            );
+                        """, (index_name, table_name))
+
+                        if not cursor.fetchone()[0]:
+                            cursor.execute(f"""
+                                CREATE INDEX {index_name} 
+                                ON "{table_name}" ({column});
+                            """)
+                            created_indexes += 1
+
+                    if created_indexes > 0:
+                        print(f"Создано {created_indexes} новых индекса")
+                    else:
+                        if table_exists:
+                            print(f"Таблица {table_name} и все индексы уже существуют")
+
+                    conn.commit()
+
+        except Exception as e:
+            print(f"Ошибка при работе с таблицей {table_name}: {e}")
+            raise
+
+    def create_forecast_table(self, db_connector):
+        """Создает таблицу Прогноз если она не существует"""
+        table_name = "Прогноз"
+
+        try:
+            with db_connector.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    # Проверка существования таблицы
+                    cursor.execute("""
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.tables 
+                            WHERE table_name = %s
+                            AND table_schema = current_schema()
+                        );
+                    """, (table_name,))
+
+                    table_exists = cursor.fetchone()[0]
+
+                    if not table_exists:
+                        # Создание таблицы
+                        cursor.execute(f"""
+                            CREATE TABLE "{table_name}" (
+                                "Дата" date NOT NULL,
+                                "Магазин" varchar(50) NOT NULL,
+                                "Товар" varchar(50) NOT NULL,
+                                "Прогноз" int4 NOT NULL,
+                                "Время_загрузки" timestamp DEFAULT CURRENT_TIMESTAMP,
+                                
+                                CONSTRAINT forecast_pk PRIMARY KEY ("Дата", "Магазин", "Товар")
+                            )
+                        """)
+                        print(f"Таблица {table_name} успешно создана")
+
+                    # Проверка существования индексов
+                    indexes_to_create = {
+                        'date_idx_forecast': '"Дата"',
+                        'store_idx_forecast': '"Магазин"',
+                        'product_idx_forecast': '"Товар"',
                     }
 
                     created_indexes = 0
@@ -385,8 +461,8 @@ class DataLoader:
 
                     'ПроданоСеть': 'ПроданоСеть_шт',
                     'ОстатокСеть': 'ОстатокСеть_шт',
-                    'ПоступилоСеть': 'ПоступилоСеть_шт',
-                    'КоличествоЧековСеть': 'КоличествоЧековСеть_шт'
+                    'ПоступилоСеть':  'ПоступилоСеть_шт',
+                    'КоличествоЧековСеть': 'КоличествоЧековСеть_шт',
                 },
                 "type_mapping": {
                     'Дата': 'date',
@@ -513,6 +589,7 @@ class DataLoader:
                     'Месяц': 'Месяц',
                     'Год': 'Год',
 
+                    'Пуассон_распр': 'Пуассон_распр',
                     'Сезонность': 'Сезонность',
                     'Сезонность_точн': 'Сезонность_точн',
                     'Температура (°C)': 'Температура (°C)',
@@ -552,6 +629,7 @@ class DataLoader:
                     'Месяц': 'int32',
                     'Год': 'int32',
 
+                    'Пуассон_распр': 'bool',
                     'Сезонность': 'str',
                     'Сезонность_точн': 'bool',
                     'Температура (°C)': 'float32',
@@ -562,6 +640,22 @@ class DataLoader:
                     "Смоделированные_заказы" : 'int32',
                     "Поступило_правка" : 'int32',
                     "Остаток_правка" : 'int32'
+                }
+            },
+            "Прогноз": {
+                "pk_columns": ["Дата", "Магазин", "Товар"],
+                "column_mapping": {
+                    # DataFrame column: DB column
+                    'Дата': 'Дата',
+                    'Магазин': 'Магазин',
+                    'Товар': 'Товар',
+                    'Предсказанные значения': 'Прогноз'
+                },
+                "type_mapping": {
+                    'Дата': 'date',
+                    'Магазин': 'str',
+                    'Товар': 'str',
+                    'Предсказанные значения': 'int32'
                 }
             }
         }
@@ -750,11 +844,15 @@ class DataLoader:
             with self.db.get_connection() as conn:
                 with conn.cursor() as cursor:
                     # Пакетная вставка
+                    def to_scalar(val):
+                        if isinstance(val, pd.Series):
+                            return val.iloc[0]
+                        return val
                     for i in range(0, len(df), batch_size):
                         batch = df.iloc[i:i + batch_size]
 
                         # Формируем записи с правильным порядком столбцов
-                        records = [tuple(row[db_col] for db_col in db_columns)
+                        records = [tuple(to_scalar(row[db_col]) for db_col in db_columns)
                                    for _, row in batch.iterrows()]
 
                         cursor.executemany(insert_sql, records)
@@ -792,52 +890,71 @@ class DataLoader:
         """Принудительная загрузка в Восстановленные_данные_продаж (без проверки существующих)"""
         self.load_data(df, "Восстановленные_данные_продаж", batch_size, check_existing=False)
 
+    def load_to_forecast_table(self, df, batch_size=100000, check_existing=True):
+        """Загрузка в таблицу Прогноз"""
+        self.load_data(df, "Прогноз", batch_size, check_existing=check_existing)
+
+    def force_load_to_forecast_table(self, df, batch_size=100000):
+        """Принудительная загрузка в таблицу Прогноз (без проверки существующих)"""
+        self.load_data(df, "Прогноз", batch_size, check_existing=False)
+
 class ModelStorage:
     def __init__(self, db_connector):
         self.db = db_connector
 
     def _compress(self, data):
         """Сжимает данные с помощью gzip"""
+        
         return gzip.compress(pickle.dumps(data))
 
     def _decompress(self, data):
         """Распаковывает данные, сжатые gzip"""
         return pickle.loads(gzip.decompress(data))
 
-    def save_models(self, product_encoder, shop_encoder, catboost_model, comment=None, compress=False):
-        """Сохраняет все модели в таблицу ML_данные_для_работы_модели"""
+    def save_models(self, label_encoder_product, label_encoder_shop, label_encoder_category, label_encoder_potreb_group, label_encoder_mnn, scaler, catboost_model, comment=None, compress=False):
+        """
+        Сохраняет все энкодеры, скалер и модель CatBoost в таблицу ML_данные_для_работы_модели
+        """
+
         try:
             with self.db.get_connection() as conn:
                 with conn.cursor() as cursor:
                     # Сериализация и (опционально) сжатие моделей
-                    serializer = self._compress if compress else pickle.dumps
+                    def serializer(obj):
+                        return self._compress(obj) if compress else pickle.dumps(obj)
 
-                    product_bytes = serializer(product_encoder)
-                    shop_bytes = serializer(shop_encoder)
+                    product_bytes = serializer(label_encoder_product)
+                    shop_bytes = serializer(label_encoder_shop)
+                    category_bytes = serializer(label_encoder_category)
+                    potreb_group_bytes = serializer(label_encoder_potreb_group)
+                    mnn_bytes = serializer(label_encoder_mnn)
+                    scaler_bytes = serializer(scaler)
                     catboost_bytes = serializer(catboost_model)
 
                     cursor.execute("""
                         INSERT INTO "ML_данные_для_работы_модели" 
-                        (label_encoder_product, label_encoder_shop, catboost_model, comment)
-                        VALUES (%s, %s, %s, %s)
+                        (label_encoder_product, label_encoder_shop, label_encoder_category, label_encoder_potreb_group, label_encoder_mnn, minmax_scaler, catboost_model, comment)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         RETURNING load_id
-                    """, (product_bytes, shop_bytes, catboost_bytes, comment))
+                    """, (product_bytes, shop_bytes, category_bytes, potreb_group_bytes, mnn_bytes, scaler_bytes, catboost_bytes, comment))
 
                     load_id = cursor.fetchone()[0]
                     conn.commit()
-                    print(f"Модели сохранены в таблицу ML_данные_для_работы_модели под ID: {load_id}")
+                    print(f"Модели и энкодеры сохранены в таблицу ML_данные_для_работы_модели под ID: {load_id}")
                     return load_id
         except Exception as e:
             print(f"Ошибка сохранения: {str(e)}")
             raise
 
     def load_latest_models(self, compressed=False):
-        """Загружает последний набор моделей из таблицы"""
+        """
+        Загружает последний набор моделей и энкодеров из таблицы
+        """
         try:
             with self.db.get_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("""
-                        SELECT label_encoder_product, label_encoder_shop, catboost_model
+                        SELECT label_encoder_product, label_encoder_shop, label_encoder_category, label_encoder_potreb_group, label_encoder_mnn, minmax_scaler, catboost_model
                         FROM "ML_данные_для_работы_модели"
                         ORDER BY load_id DESC
                         LIMIT 1
@@ -845,63 +962,21 @@ class ModelStorage:
 
                     result = cursor.fetchone()
                     if result:
-                        deserializer = self._decompress if compressed else pickle.loads
-                        return (
-                            deserializer(result[0]),
-                            deserializer(result[1]),
-                            deserializer(result[2])
-                        )
+                        def deserializer(data):
+                            return self._decompress(data) if compressed else pickle.loads(data)
+                        label_encoder_product = deserializer(result[0])
+                        label_encoder_shop = deserializer(result[1])
+                        label_encoder_category = deserializer(result[2])
+                        label_encoder_potreb_group = deserializer(result[3])
+                        label_encoder_mnn = deserializer(result[4])
+                        scaler = deserializer(result[5])
+                        catboost_model = deserializer(result[6])
+                        return (label_encoder_product, label_encoder_shop, label_encoder_category, label_encoder_potreb_group, label_encoder_mnn, scaler, catboost_model)
                     raise ValueError("В таблице ML_данные_для_работы_модели нет сохраненных моделей")
         except Exception as e:
             print(f"Ошибка загрузки: {str(e)}")
             raise
 
-    def load_models_by_id(self, load_id, compressed=False):
-        """Загружает модели по конкретному ID из таблицы"""
-        try:
-            with self.db.get_connection() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute("""
-                        SELECT label_encoder_product, label_encoder_shop, catboost_model
-                        FROM "ML_данные_для_работы_модели"
-                        WHERE load_id = %s
-                    """, (load_id,))
-
-                    result = cursor.fetchone()
-                    if result:
-                        deserializer = self._decompress if compressed else pickle.loads
-                        return (
-                            deserializer(result[0]),
-                            deserializer(result[1]),
-                            deserializer(result[2])
-                        )
-                    raise ValueError(f"Модели с ID {load_id} не найдены в таблице ML_данные_для_работы_модели")
-        except Exception as e:
-            print(f"Ошибка загрузки: {str(e)}")
-            raise
-
-    def get_model_history(self, limit=5):
-        """Возвращает историю сохранений из таблицы"""
-        try:
-            with self.db.get_connection() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute("""
-                        SELECT load_id, created_at, comment
-                        FROM "ML_данные_для_работы_модели"
-                        ORDER BY load_id DESC
-                        LIMIT %s
-                    """, (limit,))
-                    return [
-                        {
-                            'id': row[0],
-                            'date': row[1],
-                            'comment': row[2]
-                        }
-                        for row in cursor.fetchall()
-                    ]
-        except Exception as e:
-            print(f"Ошибка получения истории: {str(e)}")
-            raise
 
     def delete_models(self, load_id):
         """Удаляет набор моделей по ID из таблицы"""
@@ -939,6 +1014,127 @@ class ModelStorage:
         except Exception as e:
             print(f"Ошибка проверки таблицы: {str(e)}")
             return False
+
+    def load_models_by_id(self, load_id, compressed=False):
+        """
+        Загружает модели и энкодеры по конкретному ID из таблицы
+        """
+        import pickle
+        import gzip
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT label_encoder_product, label_encoder_shop, label_encoder_category, label_encoder_potreb_group, label_encoder_mnn, minmax_scaler, catboost_model
+                        FROM "ML_данные_для_работы_модели"
+                        WHERE load_id = %s
+                    """, (load_id,))
+
+                    result = cursor.fetchone()
+                    if result:
+                        def deserializer(data):
+                            return self._decompress(data) if compressed else pickle.loads(data)
+                        label_encoder_product = deserializer(result[0])
+                        label_encoder_shop = deserializer(result[1])
+                        label_encoder_category = deserializer(result[2])
+                        label_encoder_potreb_group = deserializer(result[3])
+                        label_encoder_mnn = deserializer(result[4])
+                        scaler = deserializer(result[5])
+                        catboost_model = deserializer(result[6])
+                        return (label_encoder_product, label_encoder_shop, label_encoder_category, label_encoder_potreb_group, label_encoder_mnn, scaler, catboost_model)
+                    raise ValueError(f"Модели с ID {load_id} не найдены в таблице ML_данные_для_работы_модели")
+        except Exception as e:
+            print(f"Ошибка загрузки: {str(e)}")
+            raise
+
+class DataExtractor:
+    def __init__(self, db_connector):
+        self.db = db_connector
+
+    def fetch_table(self, table_name, columns=None, where=None, limit=None):
+        """
+        Универсальный метод для выгрузки данных из таблицы в DataFrame.
+        :param table_name: Название таблицы
+        :param columns: Список столбцов (по умолчанию все)
+        :param where: SQL-условие (строка, например: 'Магазин = %s AND Дата >= %s')
+        :param limit: Ограничение по количеству строк
+        :return: DataFrame с данными
+        """
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cols = '*'
+                    if columns:
+                        cols = ', '.join([f'"{col}"' for col in columns])
+                    query = f'SELECT {cols} FROM "{table_name}"'
+                    params = []
+                    if where:
+                        query += f' WHERE {where[0]}'
+                        params = where[1]
+                    if limit:
+                        query += f' LIMIT {limit}'
+                    cursor.execute(query, params)
+                    data = cursor.fetchall()
+                    colnames = [desc[0] for desc in cursor.description]
+                    df = pd.DataFrame(data, columns=colnames)
+            return df
+        except Exception as e:
+            print(f"Ошибка при выгрузке из {table_name}: {e}")
+            raise
+
+    def fetch_origin_data(self, columns=None, where=None, limit=None):
+        return self.fetch_table("Исходные_данные_продаж", columns, where, limit)
+
+    def fetch_enriched_data(self, columns=None, where=None, limit=None):
+        return self.fetch_table("Обогащённые_данные_продаж", columns, where, limit)
+
+    def fetch_recovery_data(self, columns=None, where=None, limit=None):
+        return self.fetch_table("Восстановленные_данные_продаж", columns, where, limit)
+
+
+class Last30DaysExtractor:
+    def __init__(self, db_connector):
+        self.db = db_connector
+
+    def fetch_last_30_days_origin(self):
+        """Выгрузка последних 30 дней из таблицы Исходные_данные_продаж"""
+        return self._fetch_last_30_days_by_table("Исходные_данные_продаж")
+
+    def fetch_last_30_days_enriched(self):
+        """Выгрузка последних 30 дней из таблицы Обогащённые_данные_продаж"""
+        return self._fetch_last_30_days_by_table("Обогащённые_данные_продаж")
+
+    def fetch_last_30_days_recovery(self):
+        """Выгрузка последних 30 дней из таблицы Восстановленные_данные_продаж"""
+        return self._fetch_last_30_days_by_table("Восстановленные_данные_продаж")
+
+    def _fetch_last_30_days_by_table(self, table_name):
+        """Внутренняя функция для выгрузки последних 30 дней по дате"""
+        import pandas as pd
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        f'SELECT DISTINCT "Дата" FROM "{table_name}" ORDER BY "Дата" DESC LIMIT 30'
+                    )
+                    last_dates = [row[0] for row in cursor.fetchall()]
+                    if not last_dates:
+                        print(f"Нет данных в таблице {table_name}")
+                        return pd.DataFrame()
+                    min_date = min(last_dates)
+                    cursor.execute(
+                        f'SELECT * FROM "{table_name}" WHERE "Дата" >= %s',
+                        (min_date,)
+                    )
+                    data = cursor.fetchall()
+                    colnames = [desc[0] for desc in cursor.description]
+                    df = pd.DataFrame(data, columns=colnames)
+            return df
+        except Exception as e:
+            print(f"Ошибка при выгрузке из {table_name}: {e}")
+            raise
+
+
 
 def get_db_connection(config):
     """Инициализирует и возвращает DBConnector для локальной БД"""
