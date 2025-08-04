@@ -7,6 +7,39 @@ import optuna
 from DB_operations import ModelStorage
 
 class First_learning_model:
+    def first_data_type_refactor(self, df):
+        df_copy = df.copy()
+
+        column_rename_map = {
+            'Дата': 'Дата',
+            'Магазин': 'Магазин',
+            'Товар': 'Товар',
+            'Цена': 'Цена',
+            'Акция': 'Акция',
+            'Выходной': 'Выходной',
+
+            'Категория': 'Категория',
+            'ПотребГруппа': 'ПотребГруппа',
+            'МНН': 'МНН',
+
+            'Продано_шт': 'Продано',
+            'Остаток_шт': 'Остаток',
+            'Поступило_шт': 'Поступило',
+            'Заказ_шт': 'Заказ',
+            'КоличествоЧеков_шт': 'КоличествоЧеков',
+
+            'ПроданоСеть_шт': 'ПроданоСеть',
+            'ОстатокСеть_шт': 'ОстатокСеть',
+            'ПоступилоСеть_шт': 'ПоступилоСеть',
+            'КоличествоЧековСеть_шт': 'КоличествоЧековСеть',
+
+            "Заказы_правка" : 'Смоделированные_заказы',
+        }
+
+        df_copy = df_copy.rename(columns=column_rename_map)
+
+        return df_copy
+
     def add_lag_values(self, df):
         # Сортируем данные по дате (очень важно!)
         df = df.sort_values(by=['Магазин', 'Товар', 'Дата'])
@@ -182,7 +215,7 @@ class First_learning_model:
         # Предсказание на тестовых данных
         y_pred = model.predict(X_test)
 
-        model.save_model('catboost_model.cbm')
+        # model.save_model('catboost_model.cbm')
 
         return model, y_pred
 
@@ -293,6 +326,8 @@ class First_learning_model:
 
     def first_learning_model(self, df, db):
         df_copy = df.copy()
+
+        df_copy = self.first_data_type_refactor(df_copy)
 
         df_with_lags = self.add_lag_values(df_copy)
 

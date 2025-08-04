@@ -346,6 +346,8 @@ class Preprocessing_data:
 
         df_copy = df.copy()
 
+        df_copy = self.rename_columns(df_copy)
+
         df_copy['Цена'] = ((df_copy.groupby(['Магазин', 'Товар'])['Цена']
                             .transform(self.fill_zero_prices)))
         df_copy = df_copy.dropna(subset=['Цена'])
