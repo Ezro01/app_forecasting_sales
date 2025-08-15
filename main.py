@@ -25,12 +25,12 @@ def connection_to_db():
 DB_CONFIG = {
     'db_host': "postgres",  #            localhost или "127.0.0.1"  для локального запуска
     'db_port': 5432,         # стандартный порт PostgreSQL
-    'db_name': "BD_Dobroteka",  # имя вашей локальной БД
+    'db_name': "BD_Dobroteka",  # имя локальной БД
     'db_user': "postgres",   # пользователь БД
     'db_password': "1234"  # пароль от БД
 }
 
-# Конфигурация SFTP (замените на ваши данные)
+# Конфигурация SFTP 
 SFTP_CONFIG = {
     'host': 'dobroteka.tomsk.digital',  
     'port': 22,
