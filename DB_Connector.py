@@ -40,5 +40,3 @@ class DBConnector:
         except Exception as e:
             print(f"Ошибка создания SQLAlchemy engine: {e}")
             raise
-
-

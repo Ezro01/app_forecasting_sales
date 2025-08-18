@@ -5,24 +5,17 @@ services:
     build: .
     ports:
       - "8000:8000"
+    working_dir: /app
+    env_file:
+      - .env  # Подключаем все переменные из .env файла
+    environment:
+      - DB_HOST=postgres  # Переопределяем для работы внутри Docker-сети
+    volumes:
+      - C:/Users/Asus/.ssh/id_ed25519:/home/appuser/.ssh/id_ed25519
+      - .:/app
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=${DB_NAME:-BD_Dobroteka}
-      - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-1234}
-      - SFTP_HOST=dobroteka.tomsk.digital
-      - SFTP_PORT=22
-      - SFTP_USERNAME=roman
-    volumes:
-      - type: bind
-        source: ./id_ed25519  # SSH ключ в папке с docker-compose.yml
-        target: /app/id_ed25519
-        read_only: true
-    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/main/"]
       interval: 30s
@@ -30,18 +23,19 @@ services:
       retries: 3
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16
+    env_file:
+      - .env
     environment:
-      POSTGRES_DB: ${DB_NAME:-BD_Dobroteka}
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-1234}
-      POSTGRES_HOST_AUTH_METHOD: trust  # Только для разработки!
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"  # Пробрасываем порт для подключения с хоста
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5

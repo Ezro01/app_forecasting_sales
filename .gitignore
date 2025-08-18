@@ -1,0 +1,18 @@
+# secrets
+.env
+
+# Виртуальные окружения и кэш Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Docker-специфичные файлы
+docker-compose.yml
+.dockerignore
+
+# ML-специфичные файлы
+*.ipynb
+catboost_info/
+*.csv

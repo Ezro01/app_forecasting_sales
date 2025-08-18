@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import time
+import os
 from Preprocessing import Preprocessing_data
 from Sales_recovery import Recovery_sales
 from First_model_learning import First_learning_model
@@ -16,26 +17,68 @@ from SFTP_Connector import SFTPDataLoader
 from fastapi import FastAPI, APIRouter, UploadFile, File, HTTPException
 from main_local import create_tables
 import uvicorn
+from dotenv import load_dotenv
+from pathlib import Path
 
 def connection_to_db():
     db = get_db_connection(DB_CONFIG)
     return db
 
+load_dotenv('.env')
+def get_required_env(name):
+    value = os.getenv(name)
+    if value is None:
+        raise ValueError(f"Environment variable {name} is required")
+    return value
+
 # Конфигурация подключения к локальной БД
 DB_CONFIG = {
-    'db_host': "postgres",  #            localhost или "127.0.0.1"  для локального запуска
-    'db_port': 5432,         # стандартный порт PostgreSQL
-    'db_name': "BD_Dobroteka",  # имя локальной БД
-    'db_user': "postgres",   # пользователь БД
-    'db_password': "1234"  # пароль от БД
+    'db_host': get_required_env('DB_HOST'),
+    'db_port': int(get_required_env('DB_PORT')),
+    'db_name': get_required_env('DB_NAME'),
+    'db_user': get_required_env('DB_USER'),
+    'db_password': get_required_env('DB_PASSWORD')
 }
 
-# Конфигурация SFTP 
+def get_ssh_key():
+    """Автовыбор ключа по окружению (CI/CD или локальное)"""
+    env_type = os.getenv('ENV_TYPE', 'local').lower()  # приводим к нижнему регистру
+    
+    # Проверяем допустимые значения env_type
+    if env_type not in ('local', 'stage', 'prod'):
+        raise ValueError(f"Invalid ENV_TYPE: {env_type}. Must be 'local', 'stage' or 'prod'")
+    
+    # Вариант 1: Ключ из переменной (для GitLab CI)
+    if key_content := os.getenv(f"SSH_KEY_{env_type.upper()}"):
+        key_path = f"/tmp/ssh_key_{env_type}"
+        try:
+            with open(key_path, 'w') as f:
+                f.write(key_content)
+            os.chmod(key_path, 0o600)
+            return key_path
+        except IOError as e:
+            raise IOError(f"Failed to create temporary SSH key file: {e}")
+    
+    # # Вариант 2: Локальные файлы (только для local)
+    # if env_type == 'local':
+    #     local_key_path = Path('~/.ssh/id_ed25519').expanduser()
+    #     if local_key_path.exists():
+    #         return str(local_key_path)
+
+    # # Вариант 3: Локальные файлы (только для local-docker)
+    if env_type == 'local':
+        key_path = Path('/home/appuser/.ssh/id_ed25519')
+        if key_path.exists():
+            return str(key_path)
+    
+    raise FileNotFoundError(f"No SSH key found for {env_type} environment")
+
+
 SFTP_CONFIG = {
-    'host': 'dobroteka.tomsk.digital',  
-    'port': 22,
-    'username': 'roman',   
-    'key_filename': '/app/id_ed25519'                                   # C:/Users/Asus/.ssh/id_ed25519 для локального запуска
+    'host': get_required_env('SFTP_HOST'),
+    'port': int(get_required_env('SFTP_PORT')),
+    'username': get_required_env('SFTP_USERNAME'),
+    'key_filename': get_ssh_key()
 }
 
 app = FastAPI()
