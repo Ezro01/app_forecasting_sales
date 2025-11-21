@@ -1,5 +1,5 @@
 # secrets
-.env
+# .env
 
 # Виртуальные окружения и кэш Python
 __pycache__/
