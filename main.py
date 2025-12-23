@@ -59,17 +59,21 @@ def get_ssh_key():
         except IOError as e:
             raise IOError(f"Failed to create temporary SSH key file: {e}")
     
-    # # Вариант 2: Локальные файлы (только для local)
-    # if env_type == 'local':
-    #     local_key_path = Path('~/.ssh/id_ed25519').expanduser()
-    #     if local_key_path.exists():
-    #         return str(local_key_path)
-
-    # # Вариант 3: Локальные файлы (только для local-docker)
+    # Вариант 2: Локальные файлы для macOS/Linux (только для local)
     if env_type == 'local':
-        key_path = Path('/home/appuser/.ssh/id_ed25519')
-        if key_path.exists():
-            return str(key_path)
+        # Сначала проверяем стандартный путь для локальной машины
+        local_key_path = Path('~/.ssh/id_ed25519').expanduser()
+        if local_key_path.exists():
+            return str(local_key_path)
+        # Также проверяем другие возможные ключи
+        for key_name in ['id_rsa', 'id_ed25519', 'id_ecdsa']:
+            key_path = Path(f'~/.ssh/{key_name}').expanduser()
+            if key_path.exists():
+                return str(key_path)
+        # Вариант 3: Локальные файлы для Docker (только для local-docker)
+        docker_key_path = Path('/home/appuser/.ssh/id_ed25519')
+        if docker_key_path.exists():
+            return str(docker_key_path)
     
     raise FileNotFoundError(f"No SSH key found for {env_type} environment")
 
