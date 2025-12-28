@@ -118,8 +118,8 @@ def main():
 
         # Загрузка данных
         logger.info("Загрузка данных из CSV файлов...")
-        df_first = pd.read_csv("train_df.csv", parse_dates=["Дата"])
-        df_next = pd.read_csv("test_df.csv", parse_dates=["Дата"])
+        df_first = pd.read_csv("data/train_df.csv", parse_dates=["Дата"])
+        df_next = pd.read_csv("data/test_df.csv", parse_dates=["Дата"])
         logger.info(f"Загружено {len(df_first)} строк для обучения и {len(df_next)} строк для тестирования")
 
         # Обучение модели

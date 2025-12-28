@@ -1,93 +1,300 @@
-# Data-Studio ML Agent
+# Система прогнозирования продаж (Sales Forecasting API)
 
+Веб-сервис для прогнозирования продаж на основе машинного обучения. Система позволяет загружать данные, обучать модели и получать прогнозы через REST API.
 
+## 📋 Описание
 
-## Getting started
+Система прогнозирования продаж разработана для автоматизации процесса прогнозирования объема продаж на 7 дней вперед. Проект включает в себя:
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+- **REST API** на базе FastAPI для взаимодействия с системой
+- **Модель машинного обучения** на базе CatBoost для прогнозирования
+- **Предобработку данных** с восстановлением пропущенных значений
+- **Интеграцию с SFTP** для загрузки данных
+- **Хранение данных** в PostgreSQL
+- **Docker** поддержку для легкого развертывания
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## 🚀 Основные возможности
 
-## Add your files
+- ✅ Загрузка данных с SFTP сервера
+- ✅ Предобработка и очистка данных
+- ✅ Восстановление пропущенных продаж с использованием Пуассоновского распределения и LightGBM
+- ✅ Обучение модели CatBoost для прогнозирования продаж
+- ✅ Получение прогнозов на 7 дней вперед
+- ✅ Автоматическое определение сезонности товаров
+- ✅ Учет погодных данных и других факторов
+- ✅ Сохранение и загрузка обученных моделей в БД
+- ✅ REST API для всех операций
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+## 🛠 Технологический стек
+
+- **Backend**: Python 3.9+, FastAPI
+- **Machine Learning**: CatBoost, LightGBM, scikit-learn
+- **База данных**: PostgreSQL
+- **Data Processing**: pandas, numpy
+- **Интеграции**: SFTP (paramiko), REST API
+- **Контейнеризация**: Docker, Docker Compose
+
+## 📦 Установка
+
+### Требования
+
+- Python 3.9 или выше
+- PostgreSQL 16 или выше
+- Docker и Docker Compose (опционально, для контейнерного развертывания)
+
+### Локальная установка
+
+1. **Клонируйте репозиторий:**
+```bash
+git clone <repository-url>
+cd app_forecasting_sales
+```
+
+2. **Создайте виртуальное окружение:**
+```bash
+python -m venv venv
+source venv/bin/activate  # На Windows: venv\Scripts\activate
+```
+
+3. **Установите зависимости:**
+```bash
+pip install -r requirements.txt
+```
+
+4. **Настройте переменные окружения:**
+
+Создайте файл `.env` на основе `.env.example`:
+```bash
+cp .env.example .env
+```
+
+Отредактируйте `.env` файл и укажите свои настройки:
+```env
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=BD_Dobroteka
+DB_USER=postgres
+DB_PASSWORD=your_password_here
+
+# SFTP Configuration
+SFTP_HOST=your_sftp_host
+SFTP_PORT=22
+SFTP_USERNAME=your_sftp_username
+
+# Environment Type (local, stage, prod)
+ENV_TYPE=local
+
+# Application Configuration
+APP_HOST=0.0.0.0
+APP_PORT=8000
+```
+
+5. **Создайте базу данных PostgreSQL:**
+```sql
+CREATE DATABASE BD_Dobroteka;
+```
+
+### Установка через Docker
+
+1. **Создайте `.env` файл** (см. шаг 4 выше)
+
+2. **Запустите контейнеры:**
+```bash
+docker-compose up -d
+```
+
+Приложение будет доступно по адресу `http://localhost:8000`
+
+## 🔧 Конфигурация
+
+Все настройки приложения хранятся в файле `.env`. Основные параметры:
+
+### База данных
+- `DB_HOST` - хост базы данных
+- `DB_PORT` - порт базы данных (по умолчанию 5432)
+- `DB_NAME` - имя базы данных
+- `DB_USER` - пользователь базы данных
+- `DB_PASSWORD` - пароль базы данных
+
+### SFTP
+- `SFTP_HOST` - адрес SFTP сервера
+- `SFTP_PORT` - порт SFTP сервера (по умолчанию 22)
+- `SFTP_USERNAME` - имя пользователя SFTP
+- `ENV_TYPE` - тип окружения (local, stage, prod)
+- `SSH_KEY_LOCAL`, `SSH_KEY_STAGE`, `SSH_KEY_PROD` - SSH ключи для разных окружений (опционально)
+
+### Приложение
+- `APP_HOST` - хост для запуска API (по умолчанию 0.0.0.0)
+- `APP_PORT` - порт для запуска API (по умолчанию 8000)
+
+## 🏃 Запуск
+
+### Запуск API сервера
+
+```bash
+python main.py
+```
+
+Или через uvicorn:
+```bash
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+### Запуск локального обучения (для разработки)
+
+```bash
+python main_local.py
+```
+
+### Запуск через Docker
+
+```bash
+docker-compose up
+```
+
+API будет доступно по адресу: `http://localhost:8000`
+
+Интерактивная документация API доступна по адресу: `http://localhost:8000/docs`
+
+## 📚 API Документация
+
+После запуска сервера API документация доступна по следующим адресам:
+
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+
+### Основные эндпоинты
+
+#### Основные операции
+
+- `GET /main/` - Информация о доступных эндпоинтах
+- `POST /main/create-tables` - Создание таблиц в базе данных
+- `GET /main/list-files?remote_directory=/` - Список файлов на SFTP сервере
+
+#### Обучение модели
+
+- `POST /model-train/load-origin-data?remote_file_path=/path/to/file.csv` - Загрузка данных с SFTP
+- `POST /model-train/clean-data` - Очистка и предобработка данных
+- `POST /model-train/recover-data` - Восстановление пропущенных продаж
+- `POST /model-train/train-model` - Обучение модели CatBoost
+
+#### Прогнозирование
+
+- `POST /model-predict/predict-new-data?remote_file_path=/path/to/file.csv&upload_to_sftp=false&sftp_output_path=/path/to/output.csv` - Получение прогноза
+
+### Пример использования API
+
+```bash
+# Создать таблицы
+curl -X POST http://localhost:8000/main/create-tables
+
+# Загрузить данные с SFTP
+curl -X POST "http://localhost:8000/model-train/load-origin-data?remote_file_path=/data/sales.csv"
+
+# Очистить данные
+curl -X POST http://localhost:8000/model-train/clean-data
+
+# Восстановить продажи
+curl -X POST http://localhost:8000/model-train/recover-data
+
+# Обучить модель
+curl -X POST http://localhost:8000/model-train/train-model
+
+# Получить прогноз
+curl -X POST "http://localhost:8000/model-predict/predict-new-data?remote_file_path=/data/new_data.csv"
+```
+
+## 📁 Структура проекта
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.distant.global/ds/ml-agent.git
-git branch -M main
-git push -uf origin main
+app_forecasting_sales/
+├── main.py                  # Основной файл FastAPI приложения
+├── main_local.py            # Локальный скрипт для обучения и тестирования
+├── config.py                # Конфигурационный модуль (переменные окружения)
+├── DB_Connector.py          # Подключение к базе данных
+├── DB_operations.py         # Операции с базой данных (CRUD, модели)
+├── Preprocessing.py         # Предобработка данных
+├── Sales_recovery.py        # Восстановление продаж
+├── First_model_learning.py  # Обучение модели
+├── Next_model_predict.py    # Использование модели для предсказания
+├── SFTP_Connector.py        # Подключение к SFTP серверу
+├── requirements.txt         # Зависимости Python
+├── Dockerfile               # Конфигурация Docker
+├── docker-compose.yml       # Docker Compose конфигурация
+├── .env.example             # Пример файла с переменными окружения
+└── README.md                # Документация проекта
 ```
 
-## Integrate with your tools
+## 🔄 Workflow работы системы
 
-- [ ] [Set up project integrations](https://gitlab.distant.global/ds/ml-agent/-/settings/integrations)
+1. **Загрузка данных** - данные загружаются с SFTP сервера или из локальных файлов
+2. **Предобработка** - очистка данных, добавление признаков (сезонность, погода и т.д.)
+3. **Восстановление продаж** - восстановление пропущенных значений продаж
+4. **Обучение модели** - обучение CatBoost модели на исторических данных
+5. **Прогнозирование** - получение прогнозов на новые данные
 
-## Collaborate with your team
+## 🔐 Безопасность
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+⚠️ **ВАЖНО**: 
 
-## Test and Deploy
+- Никогда не коммитьте файл `.env` в репозиторий
+- SSH ключи должны храниться в безопасном месте
+- Используйте сильные пароли для базы данных
+- В production используйте переменные окружения вместо `.env` файла
 
-Use the built-in continuous integration in GitLab.
+## 🧪 Разработка
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### Структура модулей
 
-***
+- **config.py** - централизованное управление конфигурацией
+- **DB_Connector.py** - управление подключениями к БД
+- **Preprocessing.py** - предобработка и обогащение данных
+- **Sales_recovery.py** - восстановление пропущенных значений
+- **First_model_learning.py** - обучение модели CatBoost
+- **Next_model_predict.py** - использование обученной модели
 
-# Editing this README
+### Логирование
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+Все модули используют стандартный модуль `logging` Python. Уровень логирования можно настроить в коде или через переменные окружения.
 
-## Suggestions for a good README
+## 🐛 Решение проблем
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+### Ошибки подключения к базе данных
 
-## Name
-Choose a self-explaining name for your project.
+- Проверьте настройки в `.env` файле
+- Убедитесь, что PostgreSQL запущен
+- Проверьте доступность базы данных по указанному хосту и порту
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+### Ошибки SFTP
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+- Проверьте правильность SSH ключа
+- Убедитесь, что ключ добавлен в `.env` или доступен в системе
+- Проверьте настройки SFTP сервера
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+### Проблемы с обучением модели
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+- Убедитесь, что в базе данных достаточно данных
+- Проверьте логи для детальной информации об ошибках
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+## 📝 Лицензия
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+[Укажите вашу лицензию здесь]
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+## 👥 Авторы
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+[Укажите авторов проекта]
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+## 🤝 Вклад в проект
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+Если вы хотите внести вклад в проект, пожалуйста:
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+1. Создайте форк проекта
+2. Создайте ветку для новой функции (`git checkout -b feature/AmazingFeature`)
+3. Зафиксируйте изменения (`git commit -m 'Add some AmazingFeature'`)
+4. Отправьте изменения в ветку (`git push origin feature/AmazingFeature`)
+5. Откройте Pull Request
 
-## License
-For open source projects, say how it is licensed.
+## 📞 Поддержка
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Если у вас возникли вопросы или проблемы, пожалуйста, создайте issue в репозитории проекта.
