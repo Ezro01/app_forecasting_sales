@@ -1,21 +1,71 @@
-# secrets
-# .env
+# Секреты и конфиденциальные данные
+.env
+.env.local
+.env.*.local
+
+# SSH ключи (НИКОГДА не коммитить!)
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+id_ecdsa
+id_ecdsa.pub
+*.pem
+*.key
 
 # Виртуальные окружения и кэш Python
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
 .pytest_cache/
+.coverage
+htmlcov/
 .venv/
 venv/
+ENV/
+env/
+.eggs/
 
-# Docker-специфичные файлы
-docker-compose.yml
-.dockerignore
+# IDE и редакторы
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
 
-# ML-специфичные файлы
-*.ipynb
+# Jupyter Notebooks (раскомментируйте если не хотите коммитить)
+# *.ipynb
+# .ipynb_checkpoints/
+
+# ML-специфичные файлы и модели
 catboost_info/
 *.csv
+*.pkl
+*.pickle
+*.h5
+*.hdf5
+*.model
+*.joblib
 
-id_ed2219
-id_ed2219.pub
+# Данные (тестовые файлы - обычно не коммитятся)
+test_df.csv
+train_df.csv
+Dataframe_500_tovars_magazins.csv
+df_preduction.csv
+
+# Логи
+*.log
+logs/
+
+# Временные файлы
+tmp/
+temp/
+*.tmp

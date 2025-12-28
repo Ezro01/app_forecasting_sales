@@ -1,0 +1,19 @@
+# Исключить сам .dockerignore 
+.dockerignore
+
+# Исключить системные файлы
+.git/
+.gitignore
+
+# Секреты 
+# .env
+
+# Python кэш
+__pycache__/
+# ML-артефакты
+catboost_info/
+*.ipynb
+*.csv
+
+# Docker-compose 
+docker-compose.yml
