@@ -11,7 +11,6 @@ from typing import List, Optional, Dict, Any
 import logging
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class SFTPConnector:

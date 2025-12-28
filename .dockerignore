@@ -1,19 +1,82 @@
-# Исключить сам .dockerignore 
-.dockerignore
-
-# Исключить системные файлы
-.git/
+# Git
+.git
 .gitignore
+.gitattributes
 
-# Секреты 
-# .env
-
-# Python кэш
+# Python
 __pycache__/
-# ML-артефакты
-catboost_info/
-*.ipynb
-*.csv
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+ENV/
+env/
 
-# Docker-compose 
-docker-compose.yml
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+id_rsa*
+id_ed25519*
+id_ecdsa*
+
+# Data files
+*.csv
+*.pkl
+*.pickle
+*.h5
+*.hdf5
+*.model
+*.joblib
+data/
+test_df.csv
+train_df.csv
+
+# Jupyter
+*.ipynb
+.ipynb_checkpoints/
+
+# ML artifacts
+catboost_info/
+*.log
+logs/
+tmp/
+temp/
+
+# Docker (не исключаем Dockerfile и docker-compose.yml - они нужны)
+# docker-compose.yml
+# docker-compose.*.yml
+# Dockerfile
+# .dockerignore
+
+# CI/CD
+.gitlab-ci.yml
+.github/

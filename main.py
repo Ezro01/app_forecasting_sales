@@ -14,11 +14,11 @@ from Next_model_predict import Use_model_predict
 from DB_operations import DataLoader, get_db_connection, Last30DaysExtractor, DataExtractor
 from SFTP_Connector import SFTPDataLoader
 from main_local import create_tables
-from config import DB_CONFIG, SFTP_CONFIG, APP_CONFIG
+from config import DB_CONFIG, SFTP_CONFIG, APP_CONFIG, LOG_LEVEL
 
 # Настройка логирования
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)

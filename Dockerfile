@@ -1,46 +1,67 @@
-# Базовый образ Python 3.12
-FROM python:3.12.3-slim-bookworm
+# Многостадийная сборка для оптимизации размера образа
+FROM python:3.12-slim-bookworm as builder
 
-# Установка системных зависимостей
-RUN apt-get update && apt-get install -y \
-    libpq-dev \
+# Установка системных зависимостей для сборки
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
-    openssh-client \
-    curl \
-    procps \
+    g++ \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Создаем непривилегированного пользователя и настраиваем окружение
-RUN useradd -m appuser && \
-    mkdir -p /app && \
-    mkdir -p /home/appuser/.ssh && \
-    chown -R appuser:appuser /app /home/appuser/.ssh && \
-    chmod 700 /home/appuser/.ssh && \
-    chmod 755 /home/appuser
+# Создание виртуального окружения
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-WORKDIR /app
-
-# Копируем только requirements.txt сначала для кеширования и устанавливаем зависимости и Устанавливаем Python-зависимости
-COPY --chown=appuser:appuser requirements.txt .
+# Копирование и установка зависимостей Python
+COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Копируем остальные файлы (исключая ненужные через .dockerignore)
+# Финальный образ
+FROM python:3.12-slim-bookworm
+
+# Метаданные образа
+LABEL maintainer="Sales Forecasting Team"
+LABEL description="Sales Forecasting API application"
+
+# Установка только runtime зависимостей
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    openssh-client \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Копирование виртуального окружения из builder
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Создание непривилегированного пользователя
+RUN useradd -m -u 1000 appuser && \
+    mkdir -p /app /tmp/ssh_keys && \
+    chown -R appuser:appuser /app /tmp/ssh_keys
+
+# Установка рабочей директории
+WORKDIR /app
+
+# Копирование файлов приложения
 COPY --chown=appuser:appuser . .
 
-# Переключаем пользователя
+# Переключение на непривилегированного пользователя
 USER appuser
 
-# Несекретные переменные окружения
+# Переменные окружения
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app 
+    PYTHONPATH=/app \
+    PYTHONDONTWRITEBYTECODE=1
 
-# Порт приложения
+# Открытие порта приложения
 EXPOSE 8000
 
-# Healthcheck для мониторинга
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+# Healthcheck для мониторинга состояния приложения
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/main/ || exit 1
 
-# Команда запуска
+# Команда запуска приложения
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

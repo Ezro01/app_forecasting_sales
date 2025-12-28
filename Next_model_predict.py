@@ -18,7 +18,6 @@ class Use_model_predict:
     def add_lag_values(self, df_first, df_next):
         df_first_copy = df_first.copy()
         df_next_copy = df_next.copy()
-        # print(df_first_copy.info())
 
         processor = Preprocessing_data()
         df_first_copy = processor.rename_columns(df_first_copy)
@@ -31,21 +30,7 @@ class Use_model_predict:
         df_first_date_max = df_next_copy['Дата'].min()
         df_first_copy = df_first_copy[df_first_copy['Дата'] < df_first_date_max]
 
-        # print(df_next.shape)
-        # print(df_next.info())
-        # print(df_first_copy['Дата'].min())
-        # print(df_first_copy['Дата'].max())
-        # print(df_next_copy['Дата'].min())
-        # print(df_next_copy['Дата'].max())
-
         df = pd.concat([df_first_copy, df_next_copy], ignore_index=True)
-
-        # unique_dates_count = df_next_copy['Дата'].nunique()
-
-        # max_dates = df['Дата'].max()
-        # days_for_lags = max_dates - pd.Timedelta(unique_dates_count+23)
-
-        # df = df[df['Дата'] > days_for_lags]
 
         # Сортируем данные по дате (очень важно!)
         df = df.sort_values(by=['Магазин', 'Товар', 'Дата'])
@@ -91,10 +76,6 @@ class Use_model_predict:
         df = df[df['Дата'] >= df_first_date_max]
 
         df = df.drop(columns=['Заказы_правка'], axis=1)
-
-        # Оставляем только даты из df_next
-        # df = df[df['Дата'].dt.date.isin(unique_dates_set)]
-
         df = df.dropna()
         
         logger.debug(f"Форма датафрейма после добавления лагов: {df.shape}")

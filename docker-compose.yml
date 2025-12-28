@@ -2,46 +2,56 @@ version: '3.8'
 
 services:
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sales_forecasting_api
+    restart: unless-stopped
     ports:
       - "${APP_PORT:-8000}:8000"
     working_dir: /app
+    
+    # Переменные окружения из .env файла (для локальной разработки)
+    # В CI/CD все переменные будут переданы через environment или secrets
     env_file:
-      - .env  # Подключаем все переменные из .env файла
+      - .env
+    
+    # Переменные окружения могут быть переопределены через CI/CD
+    # Все необходимые переменные (DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD,
+    # SFTP_HOST, SFTP_PORT, SFTP_USERNAME, SSH_KEY_STAGE, SSH_KEY_PROD и т.д.)
+    # должны быть установлены в CI/CD pipeline
     environment:
-      - DB_HOST=postgres  # Переопределяем для работы внутри Docker-сети
-      # SSH ключ должен быть предоставлен через переменную окружения SSH_KEY_LOCAL
-      # или смонтирован через volume в docker-compose.override.yml
+      # Приложение будет использовать переменные из env_file или CI/CD
+      # DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD - для подключения к внешней БД
+      # SFTP_HOST, SFTP_PORT, SFTP_USERNAME - для подключения к внешнему SFTP
+      # SSH_KEY_STAGE или SSH_KEY_PROD - SSH ключ из CI/CD secrets (будет создан в /tmp/ssh_keys/)
+      # ENV_TYPE - тип окружения (local, stage, prod)
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app
+    
+    # Volumes только для локальной разработки (опционально)
+    # В production эти volumes не нужны
     volumes:
-      - .:/app
-      # Для SSH ключа используйте volume override файл:
-      # - ${SSH_KEY_PATH:-~/.ssh/id_ed25519}:/home/appuser/.ssh/id_ed25519:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
+      # Раскомментируйте для разработки с hot-reload
+      # - .:/app
+      # Для SSH ключей (только для локальной разработки)
+      # - ${SSH_KEY_PATH:-~/.ssh/id_ed25519}:/tmp/ssh_keys/id_ed25519:ro
+    
+    # Healthcheck для мониторинга
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/main/"]
       interval: 30s
       timeout: 10s
       retries: 3
-
-  postgres:
-    image: postgres:16
-    env_file:
-      - .env
-    environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "${DB_PORT:-5432}:5432"  # Пробрасываем порт для подключения с хоста
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  postgres_data:
+      start_period: 40s
+    
+    # Логирование
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Ограничения ресурсов (раскомментируйте при необходимости)
+    # Для Docker Compose v3 используйте docker stats или внешние инструменты
+    # Для Docker Swarm используйте секцию deploy.resources

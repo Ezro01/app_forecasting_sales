@@ -15,11 +15,12 @@ from DB_operations import DataLoader
 from DB_operations import get_db_connection
 from DB_operations import ModelStorage
 from DB_operations import Last30DaysExtractor
-from config import DB_CONFIG
+from config import DB_CONFIG, DATA_CONFIG
 
 # Настройка логирования
+from config import LOG_LEVEL
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -118,8 +119,12 @@ def main():
 
         # Загрузка данных
         logger.info("Загрузка данных из CSV файлов...")
-        df_first = pd.read_csv("data/train_df.csv", parse_dates=["Дата"])
-        df_next = pd.read_csv("data/test_df.csv", parse_dates=["Дата"])
+        train_path = DATA_CONFIG['train_data_path']
+        test_path = DATA_CONFIG['test_data_path']
+        logger.info(f"Загрузка обучающих данных из: {train_path}")
+        logger.info(f"Загрузка тестовых данных из: {test_path}")
+        df_first = pd.read_csv(train_path, parse_dates=["Дата"])
+        df_next = pd.read_csv(test_path, parse_dates=["Дата"])
         logger.info(f"Загружено {len(df_first)} строк для обучения и {len(df_next)} строк для тестирования")
 
         # Обучение модели

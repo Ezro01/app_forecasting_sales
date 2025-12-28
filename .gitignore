@@ -56,6 +56,7 @@ catboost_info/
 *.joblib
 
 # Данные (тестовые файлы - обычно не коммитятся)
+data/
 test_df.csv
 train_df.csv
 Dataframe_500_tovars_magazins.csv

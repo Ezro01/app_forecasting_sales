@@ -60,11 +60,13 @@ def get_ssh_key_path() -> str:
     if env_type not in ('local', 'stage', 'prod'):
         raise ValueError(f"Invalid ENV_TYPE: {env_type}. Must be 'local', 'stage' or 'prod'")
     
-    # Вариант 1: Ключ из переменной (для GitLab CI/CD)
+    # Вариант 1: Ключ из переменной (для GitLab CI/CD и Docker)
     key_content = os.getenv(f"SSH_KEY_{env_type.upper()}")
     if key_content:
-        key_path = f"/tmp/ssh_key_{env_type}"
+        key_path = f"/tmp/ssh_keys/ssh_key_{env_type}"
         try:
+            # Создаем директорию если её нет
+            os.makedirs(os.path.dirname(key_path), exist_ok=True)
             with open(key_path, 'w') as f:
                 f.write(key_content)
             os.chmod(key_path, 0o600)
@@ -89,6 +91,11 @@ def get_ssh_key_path() -> str:
         docker_key_path = Path('/home/appuser/.ssh/id_ed25519')
         if docker_key_path.exists():
             return str(docker_key_path)
+        
+        # Вариант 4: Проверяем /tmp/ssh_keys для Docker (если ключ был смонтирован)
+        tmp_key_path = Path('/tmp/ssh_keys/id_ed25519')
+        if tmp_key_path.exists():
+            return str(tmp_key_path)
     
     raise FileNotFoundError(f"No SSH key found for {env_type} environment")
 
@@ -124,4 +131,13 @@ APP_CONFIG: Dict[str, Any] = {
     'host': get_optional_env('APP_HOST', '0.0.0.0'),
     'port': int(get_optional_env('APP_PORT', '8000'))
 }
+
+# Конфигурация путей к локальным файлам (опционально, только для локальной разработки)
+DATA_CONFIG: Dict[str, Any] = {
+    'train_data_path': get_optional_env('TRAIN_DATA_PATH', 'data/train_df.csv'),
+    'test_data_path': get_optional_env('TEST_DATA_PATH', 'data/test_df.csv')
+}
+
+# Конфигурация логирования
+LOG_LEVEL = get_optional_env('LOG_LEVEL', 'INFO').upper()
 

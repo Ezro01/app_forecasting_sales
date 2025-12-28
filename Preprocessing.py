@@ -102,10 +102,7 @@ class Preprocessing_data:
         test_for_0_zero = df.groupby(['Магазин', 'Товар'])['Продано'].sum().reset_index()
 
         # Отбираем группы, где сумма продаж больше 6
-        # good_groups = test_for_0_zero[test_for_0_zero['Продано'] <= 6]
-        # print('Меньше или равно 6 продажам', good_groups.count())
         good_groups = test_for_0_zero[test_for_0_zero['Продано'] > 6]
-        # print('Больше 6 продаж',good_groups.count())
 
         # Фильтруем исходный df, оставляя только строки из этих групп
         test_0 = df.merge(good_groups[['Магазин', 'Товар']], on=['Магазин', 'Товар'], how='inner')
