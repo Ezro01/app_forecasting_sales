@@ -16,3 +16,6 @@ docker-compose.yml
 *.ipynb
 catboost_info/
 *.csv
+
+id_ed2219
+id_ed2219.pub
