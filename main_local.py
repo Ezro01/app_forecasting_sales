@@ -1,6 +1,10 @@
+"""
+Локальный скрипт для обучения и тестирования модели.
+Использует конфигурацию из переменных окружения.
+"""
 import pandas as pd
 import numpy as np
-import time
+import logging
 from Preprocessing import Preprocessing_data
 from Sales_recovery import Recovery_sales
 from First_model_learning import First_learning_model
@@ -11,50 +15,61 @@ from DB_operations import DataLoader
 from DB_operations import get_db_connection
 from DB_operations import ModelStorage
 from DB_operations import Last30DaysExtractor
+from config import DB_CONFIG
+
+# Настройка логирования
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 
 def create_tables(db):
-    create_tables = Create_tables()
-    print("Создание таблиц в локальной БД...")
-    create_tables.create_origin_data_table(db)
-    create_tables.create_enriched_data_table(db)
-    create_tables.create_recovery_data_table(db)
-    create_tables.saved_ml_data_table(db)
-    create_tables.create_forecast_table(db)
+    """Создает все необходимые таблицы в базе данных."""
+    create_tables_obj = Create_tables()
+    logger.info("Создание таблиц в локальной БД...")
+    create_tables_obj.create_origin_data_table(db)
+    create_tables_obj.create_enriched_data_table(db)
+    create_tables_obj.create_recovery_data_table(db)
+    create_tables_obj.saved_ml_data_table(db)
+    create_tables_obj.create_forecast_table(db)
+    logger.info("Все таблицы успешно созданы")
 
 def first_model_learn(df_first, db):
+    """Обучает модель на исходных данных."""
     df_first_copy = df_first.copy()
-
     df_first_copy = df_first_copy.sort_values(by=['Дата', 'Магазин', 'Товар'])
 
     data_loader = DataLoader(db)
     processor = Preprocessing_data()
     sales_recovery = Recovery_sales()
-    first_model_learn = First_learning_model()
-
+    first_model_learn_obj = First_learning_model()
 
     # Загрузка данных в локальную БД
-    print("Загрузка исходных данных данных в локальную БД...")
+    logger.info("Загрузка исходных данных в локальную БД...")
     data_loader.load_to_origin_table(df_first_copy, batch_size=100000)
-    print("Исходные данные успешно загружены в локальную БД!")
+    logger.info("Исходные данные успешно загружены в локальную БД!")
 
-
+    # Предобработка данных
+    logger.info("Предобработка данных...")
     df_clean = processor.first_preprocess_data(df_first_copy)
 
-    # print("Загрузка исходных данных данных в локальную БД...")
-    # data_loader.load_to_enriched_table(df_clean, batch_size=100000)
-    # print("Исходные данные успешно загружены в локальную БД!")
-
+    # Восстановление продаж
+    logger.info("Восстановление продаж...")
     df_recovery = sales_recovery.first_full_sales_recovery(df_clean)
 
-    print("Загрузка исходных данных данных в локальную БД...")
+    logger.info("Загрузка восстановленных данных в локальную БД...")
     data_loader.load_to_recovery_table(df_recovery, batch_size=100000)
-    print("Исходные данные успешно загружены в локальную БД!")
+    logger.info("Восстановленные данные успешно загружены в локальную БД!")
 
-    df_preduction = first_model_learn.first_learning_model(df_recovery, db)
-
-    # return df_preduction
+    # Обучение модели
+    logger.info("Обучение модели...")
+    df_preduction = first_model_learn_obj.first_learning_model(df_recovery, db)
+    logger.info("Обучение модели завершено")
 
 def use_model_predict(df_first, df_next, df_season_sales, db):
+    """Использует обученную модель для предсказания."""
     df_first_copy = df_first.copy()
     df_next_copy = df_next.copy()
     df_season_sales_copy = df_season_sales.copy()
@@ -65,66 +80,66 @@ def use_model_predict(df_first, df_next, df_season_sales, db):
     data_loader = DataLoader(db)
 
     # Загрузка данных в локальную БД
-    print("Загрузка новых данных данных в локальную БД...")
+    logger.info("Загрузка новых данных в локальную БД...")
     data_loader.load_to_origin_table(df_next_copy, batch_size=100000)
-    print("Новые данные успешно загружены в локальную БД!")
+    logger.info("Новые данные успешно загружены в локальную БД!")
 
+    # Предобработка данных
+    logger.info("Предобработка новых данных...")
     df_clean = processor.next_preprocess_data(df_first_copy, df_next_copy, df_season_sales_copy)
-    
 
-    # print("Загрузка исходных данных данных в локальную БД...")
-    # data_loader.load_to_enriched_table(df_clean, batch_size=100000)
-    # print("Исходные данные успешно загружены в локальную БД!")
-
-
+    # Восстановление продаж
+    logger.info("Восстановление продаж для новых данных...")
     df_recovery = sales_recovery.next_full_sales_recovery(df_first_copy, df_clean, df_season_sales_copy)
-    
 
-    print("Загрузка исходных данных данных в локальную БД...")
+    logger.info("Загрузка восстановленных данных в локальную БД...")
     data_loader.load_to_recovery_table(df_recovery, batch_size=100000)
-    print("Исходные данные успешно загружены в локальную БД!")
+    logger.info("Восстановленные данные успешно загружены в локальную БД!")
 
+    # Предсказание
+    logger.info("Выполнение предсказания...")
     df_preduction = use_model_prediction.use_model_predict(df_first_copy, df_recovery, df_season_sales_copy, db)
 
-    # Загрузка данных в локальную БД
-    print("Загрузка прогноза в локальную БД...")
+    # Загрузка прогноза в БД
+    logger.info("Загрузка прогноза в локальную БД...")
     data_loader.load_to_forecast_table(df_preduction, batch_size=100000)
-    print("Прогноз успешно загружен в локальную БД!")
+    logger.info("Прогноз успешно загружен в локальную БД!")
 
-    # return df_preduction
-
-# Конфигурация подключения к локальной БД
-DB_CONFIG = {
-    'db_host': "localhost",  # или "127.0.0.1"
-    'db_port': 5432,         # стандартный порт PostgreSQL
-    'db_name': "BD_Dobroteka",  # имя вашей локальной БД
-    'db_user': "postgres",   # пользователь БД
-    'db_password': "1234"  # пароль от БД
-}
 
 def main():
-    # Инициализация подключения к локальной БД
-    db = get_db_connection(DB_CONFIG)
-    
-    # Создание таблиц в локальной БД
-    create_tables(db)
+    """Основная функция для запуска обучения и предсказания модели."""
+    try:
+        # Инициализация подключения к локальной БД
+        logger.info("Подключение к базе данных...")
+        db = get_db_connection(DB_CONFIG)
+        
+        # Создание таблиц в локальной БД
+        create_tables(db)
 
-    df_first = pd.read_csv("train_df.csv", parse_dates=["Дата"])
-    df_next = pd.read_csv("test_df.csv", parse_dates=["Дата"])
+        # Загрузка данных
+        logger.info("Загрузка данных из CSV файлов...")
+        df_first = pd.read_csv("train_df.csv", parse_dates=["Дата"])
+        df_next = pd.read_csv("test_df.csv", parse_dates=["Дата"])
+        logger.info(f"Загружено {len(df_first)} строк для обучения и {len(df_next)} строк для тестирования")
 
+        # Обучение модели
+        logger.info("Начало обучения модели...")
+        first_model_learn(df_first, db)
+        
+        # Получение последних 30 дней для предсказания
+        logger.info("Получение данных за последние 30 дней...")
+        last_30_days_extractor = Last30DaysExtractor(db)
+        df_last_30_days_origin = last_30_days_extractor.fetch_last_30_days_origin()
+        df_last_30_days_recovery = last_30_days_extractor.fetch_last_30_days_recovery()
 
-    # df_preduction = 
-    first_model_learn(df_first, db)
-    
-       
-    last_30_days_extractor = Last30DaysExtractor(db)
-    df_last_30_days_origin = last_30_days_extractor.fetch_last_30_days_origin()
-    df_last_30_days_recovery = last_30_days_extractor.fetch_last_30_days_recovery()
-
-    # df_preduction = 
-    use_model_predict(df_last_30_days_origin, df_next, df_last_30_days_recovery, db)
-
-    
+        # Предсказание
+        logger.info("Начало предсказания...")
+        use_model_predict(df_last_30_days_origin, df_next, df_last_30_days_recovery, db)
+        logger.info("Предсказание завершено")
+        
+    except Exception as e:
+        logger.error(f"Ошибка при выполнении: {e}", exc_info=True)
+        raise
 
 
 if __name__ == "__main__":

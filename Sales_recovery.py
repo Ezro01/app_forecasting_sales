@@ -1,3 +1,7 @@
+"""
+Модуль для восстановления продаж и моделирования инвентаря.
+Включает функции для проверки распределений, восстановления продаж и моделирования поставок.
+"""
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.pipeline import Pipeline
@@ -7,8 +11,13 @@ import lightgbm as lgb
 import numpy as np
 import pandas as pd
 import time
+import logging
 
-class Recovery_sales():
+# Настройка логирования
+logger = logging.getLogger(__name__)
+
+
+class Recovery_sales:
     def first_data_type_refactor(self, df):
         df_copy = df.copy()
 
@@ -87,10 +96,11 @@ class Recovery_sales():
 
         # Объединяем обратно с основным DataFrame по Магазин + Товар
         df = df_copy.merge(poisson_df, on=['Магазин', 'Товар'], how='left')
-        print(f"\nСвязок товар+магазин с Пуассоновским распределением: {df[df['Пуассон_распр'] == 1][['Товар', 'Магазин']].drop_duplicates().shape[0]}")
-        print(f"Связок товар+магазин не с Пуассоновским распределением:{df[df['Пуассон_распр'] == 0][['Товар', 'Магазин']].drop_duplicates().shape[0]}")
-
-        print('Проверка распределений закончена\n')
+        poisson_count = df[df['Пуассон_распр'] == 1][['Товар', 'Магазин']].drop_duplicates().shape[0]
+        non_poisson_count = df[df['Пуассон_распр'] == 0][['Товар', 'Магазин']].drop_duplicates().shape[0]
+        logger.info(f"Связок товар+магазин с Пуассоновским распределением: {poisson_count}")
+        logger.info(f"Связок товар+магазин не с Пуассоновским распределением: {non_poisson_count}")
+        logger.info('Проверка распределений закончена')
 
         return df
 
@@ -153,10 +163,10 @@ class Recovery_sales():
                 data.loc[zero_sales.index, 'Продано_правка'] = simulated_sales
 
             except Exception as e:
-                print(f"Ошибка для магазин {shop}, товар {product}: {str(e)}")
+                logger.error(f"Ошибка для магазина {shop}, товара {product}: {str(e)}")
                 continue
 
-        print('Продажи товаров с пуассоновским распределением восстановлены')
+        logger.info('Продажи товаров с пуассоновским распределением восстановлены')
 
         return data
 
@@ -229,11 +239,11 @@ class Recovery_sales():
                 data.loc[zero_sales.index, 'Продано_правка'] = np.round(np.maximum(predicted, 0)).astype(int)
 
             except Exception as e:
-                print(f"Ошибка для магазина {shop}, товара {product}: {str(e)}")
+                logger.error(f"Ошибка для магазина {shop}, товара {product}: {str(e)}")
                 continue
 
-        print('Продажи восстановлены с помощью LightGBM')
-        print('Восстановление продаж закончено\n')
+        logger.info('Продажи восстановлены с помощью LightGBM')
+        logger.info('Восстановление продаж закончено')
         return data
 
     def calculate_delivery_lags(self, df):
@@ -353,11 +363,11 @@ class Recovery_sales():
         # Выводим количество уникальных пар Магазин-Товар с NA
         na_pairs_count = df_with_lags[df_with_lags['Медианный_лаг_в_днях'].isna()][['Магазин', 'Товар']].drop_duplicates().shape[0]
 
-        print(f"Количество пар Магазин-Товар с отсутствующими лагами: {na_pairs_count}")
+        logger.info(f"Количество пар Магазин-Товар с отсутствующими лагами: {na_pairs_count}")
 
         df_with_lags['Медианный_лаг_в_днях'] = df_with_lags['Медианный_лаг_в_днях'].fillna(default_lag)
 
-        print('Добавлен медианный лаг между заказом и приходом в аптеку\n')
+        logger.info('Добавлен медианный лаг между заказом и приходом в аптеку')
 
         return df_with_lags
 
@@ -462,8 +472,8 @@ class Recovery_sales():
         df_copy['Смоделированные_заказы'] += df_copy['Заказ']
         df_copy = df_copy.sort_index()
 
-        print('Добавлены смоделированные поступления, заказы и остатки\n')
-        print('Восстановление продаж, остатков, поступлений и заказов закончено')
+        logger.info('Добавлены смоделированные поступления, заказы и остатки')
+        logger.info('Восстановление продаж, остатков, поступлений и заказов закончено')
 
         return df_copy
 
@@ -482,7 +492,7 @@ class Recovery_sales():
         df[type_float] = df[type_float].astype(float)
         df[type_bool] = df[type_bool].astype(bool)
 
-        print('Типы данных скорректированы')
+        logger.debug('Типы данных скорректированы')
         return df
 
     def first_full_sales_recovery(self, df):
@@ -510,9 +520,9 @@ class Recovery_sales():
 
         end_time = time.time()
         execution_time = end_time - start_time
-        print(f"Время выполнения: {execution_time // 60} минут {execution_time % 60} секунд\n")
+        logger.info(f"Время выполнения восстановления продаж: {execution_time // 60:.0f} минут {execution_time % 60:.0f} секунд")
 
-        df_full_recovery.sort_values(by=['Дата', 'Магазин', 'Товар'])
+        df_full_recovery = df_full_recovery.sort_values(by=['Дата', 'Магазин', 'Товар'])
 
         return df_full_recovery
 
@@ -535,7 +545,7 @@ class Recovery_sales():
             on=['Магазин', 'Товар'],
             how='inner'  # Сохраняем все строки из df_next_copy
         )
-        print('Добавлено соответствие распределению Пуассона и Медианный лаг в днях')   
+        logger.info('Добавлено соответствие распределению Пуассона и Медианный лаг в днях')   
 
         df_next_poison['Продано_правка'] = df_next_poison['Продано'].copy()
         df_next_poison['Смоделированные_заказы'] = df_next_poison['Заказ'].copy()
@@ -555,7 +565,7 @@ class Recovery_sales():
                              'Продано_правка', 'Медианный_лаг_в_днях',
                              'Смоделированные_заказы', 'Поступило_правка', 'Остаток_правка']]
 
-        df_full_recovery.sort_values(by=['Дата', 'Магазин', 'Товар'])
+        df_full_recovery = df_full_recovery.sort_values(by=['Дата', 'Магазин', 'Товар'])
 
         return df_full_recovery
 

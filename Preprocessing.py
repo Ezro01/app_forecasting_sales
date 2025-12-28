@@ -1,8 +1,17 @@
+"""
+Модуль для предобработки данных продаж.
+Включает функции для очистки, обогащения и трансформации данных.
+"""
 import numpy as np
 import requests
 import pytz
 import pandas as pd
 import time
+import logging
+
+# Настройка логирования
+logger = logging.getLogger(__name__)
+
 
 class Preprocessing_data:
     def rename_columns(self, df):
@@ -49,7 +58,7 @@ class Preprocessing_data:
         df['Месяц'] = df['Дата'].dt.month
         df['Год'] = df['Дата'].dt.year
 
-        print('Добавлены столбцы год месяц и остальные')
+        logger.debug('Добавлены столбцы: год, месяц, день недели')
 
         return df
 
@@ -59,19 +68,19 @@ class Preprocessing_data:
         df_copy['Остаток'] = df_copy['Остаток'].clip(lower=0)
         df_copy['ПроданоСеть'] = df_copy['ПроданоСеть'].clip(lower=0)
         df_copy['ОстатокСеть'] = df_copy['ОстатокСеть'].clip(lower=0)
-        print('Отрицательные значения продаж и остатков приравнены к нулю')
+        logger.debug('Отрицательные значения продаж и остатков приравнены к нулю')
 
         df_copy['МНН'] = df_copy['МНН'].astype(object)
         df_copy['Магазин'] = df_copy['Магазин'].astype(object)
 
         df_copy['МНН'] = df_copy['МНН'].fillna('Не определено')
         df_copy['ПотребГруппа'] = df_copy['ПотребГруппа'].fillna('Не определена')
-        print('NA столбцов МНН и ПотребГруппа заполнены')
+        logger.debug('NA столбцов МНН и ПотребГруппа заполнены')
 
         return df_copy
 
     def clining_data(self, df):
-        print("\nКоличество строк до фильтрации:", df.shape[0])
+        logger.info(f"Количество строк до фильтрации: {df.shape[0]}")
         # 1. Находим максимальную дату в датафрейме и вычисляем порог (365 дней назад)
         max_date = df['Дата'].max()
         cutoff_date = max_date - pd.Timedelta(days=365)
@@ -102,8 +111,8 @@ class Preprocessing_data:
         test_0 = df.merge(good_groups[['Магазин', 'Товар']], on=['Магазин', 'Товар'], how='inner')
 
         df = test_0.copy()
-        print("Количество строк после фильтрации:", df.shape[0])
-        print('Удалены товары вышедшие из ассортимента')
+        logger.info(f"Количество строк после фильтрации: {df.shape[0]}")
+        logger.info('Удалены товары вышедшие из ассортимента')
 
         return df
 
@@ -176,11 +185,9 @@ class Preprocessing_data:
 
         # Количество несезонных товаров
         nonseasonal_count = (season_summary['Сезонность'] == 'Несезонный').sum()
-        print(f"\nКоличество сезонных товаров: {seasonal_count}")
-        print(f"Количество несезонных товаров: {nonseasonal_count}")
-
-        print('Сезонные товары определены')
-
+        logger.info(f"Количество сезонных товаров: {seasonal_count}")
+        logger.info(f"Количество несезонных товаров: {nonseasonal_count}")
+        logger.info('Сезонные товары определены')
 
         return df
 
@@ -232,7 +239,7 @@ class Preprocessing_data:
         if existing_bool:
             df[existing_bool] = df[existing_bool].astype(bool)
 
-        print('Типы данных скорректированы')
+        logger.debug('Типы данных скорректированы')
         return df
 
     def add_weather_data(self, df):
@@ -265,7 +272,7 @@ class Preprocessing_data:
             data = response.json()
 
             if 'hourly' not in data:
-                print("В ответе API отсутствуют hourly данные")
+                logger.warning("В ответе API отсутствуют hourly данные")
                 return df
 
             # Часовой пояс Томска
@@ -313,30 +320,25 @@ class Preprocessing_data:
             })
 
         except requests.exceptions.RequestException as e:
-            print(f"❌ Ошибка при запросе к API погоды: {e}")
-            print("🔧 Возможные причины:")
-            print("   - Нет подключения к интернету")
-            print("   - API временно недоступен")
-            print("   - Превышен лимит запросов")
-            print("   - Неправильный URL или параметры")
+            logger.error(f"Ошибка при запросе к API погоды: {e}")
+            logger.warning("Возможные причины: нет подключения к интернету, API недоступен, превышен лимит запросов")
         except Exception as e:
-            print(f"❌ Произошла ошибка при получении погодных данных: {e}")
+            logger.error(f"Произошла ошибка при получении погодных данных: {e}", exc_info=True)
 
         # Заполняем NaN значения для столбцов погоды, если они отсутствуют
         if 'Температура (°C)' not in df.columns:
             df['Температура (°C)'] = 0.0
-            print("📝 Добавлен столбец 'Температура (°C)' со значением по умолчанию (0.0)")
+            logger.warning("Добавлен столбец 'Температура (°C)' со значением по умолчанию (0.0)")
         else:
             df['Температура (°C)'] = df['Температура (°C)'].fillna(0.0)
             
         if 'Давление (мм рт. ст.)' not in df.columns:
-            df['Давление (мм рт. ст.)'] = 0.0  # стандартное атмосферное давление
-            print("📝 Добавлен столбец 'Давление (мм рт. ст.)' со значением по умолчанию (0.0)")
+            df['Давление (мм рт. ст.)'] = 0.0
+            logger.warning("Добавлен столбец 'Давление (мм рт. ст.)' со значением по умолчанию (0.0)")
         else:
             df['Давление (мм рт. ст.)'] = df['Давление (мм рт. ст.)'].fillna(0.0)
 
-        # df = df.drop('key_0', axis=1)
-        print('\nПогода и атмосферное давление добавлены')
+        logger.info('Погода и атмосферное давление добавлены')
 
         return df
 
@@ -351,7 +353,7 @@ class Preprocessing_data:
         df_copy['Цена'] = ((df_copy.groupby(['Магазин', 'Товар'])['Цена']
                             .transform(self.fill_zero_prices)))
         df_copy = df_copy.dropna(subset=['Цена'])
-        print('\nНулевые значения цены восстановлены')
+        logger.info('Нулевые значения цены восстановлены')
 
         df_non_negative_values = self.non_negative_values(df_copy)
 
@@ -362,26 +364,26 @@ class Preprocessing_data:
         df_define = self.define_the_season(df_cleaning)
 
         df_define['Сезонность_точн'] = df_define.apply(self.check_season, axis=1)
-        print('\nДобавлена "Точная сезоннсть" в булевом формате для каждого дня')
+        logger.debug('Добавлена "Точная сезонность" в булевом формате для каждого дня')
 
         df_temp = self.add_weather_data(df_define)
         if 'key_0' in df_temp.columns:
             df_temp = df_temp.drop('key_0', axis=1)
 
-        df_resilt_clining = self.data_type_refactor(df_temp)
+        df_result_cleaning = self.data_type_refactor(df_temp)
 
-        print('\nДатасет отчищен')
+        logger.info('Датасет очищен')
 
         end_time = time.time()
         execution_time = end_time - start_time
-        print(f"Время выполнения: {execution_time // 60} минут {execution_time % 60} секунд\n")
+        logger.info(f"Время выполнения предобработки: {execution_time // 60:.0f} минут {execution_time % 60:.0f} секунд")
 
-        print(df_temp.isna().sum())
-        print(df_temp.info())
+        logger.debug(f"Статистика пропущенных значений:\n{df_temp.isna().sum()}")
+        logger.debug(f"Информация о датасете:\n{df_temp.info()}")
 
-        df_resilt_clining.sort_values(by=['Дата', 'Магазин', 'Товар'])
+        df_result_cleaning = df_result_cleaning.sort_values(by=['Дата', 'Магазин', 'Товар'])
 
-        return df_resilt_clining
+        return df_result_cleaning
 
 
     def next_preprocess_data(self, df_first, df_next, df_season_sales):
@@ -397,13 +399,13 @@ class Preprocessing_data:
         df_next_copy['Цена'] = ((df_next_copy.groupby(['Магазин', 'Товар'])['Цена']
                             .transform(self.fill_zero_prices)))
         df_second_copy = df_next_copy.dropna(subset=['Цена'])
-        print('\nНулевые значения цены восстановлены')
+        logger.info('Нулевые значения цены восстановлены')
 
         df_non_negative_values = self.non_negative_values(df_second_copy)
 
-        df_parse_dates = self.parse_dates(df_non_negative_values) 
+        df_parse_dates = self.parse_dates(df_non_negative_values)
 
-        print(df_season_sales_copy.info())
+        logger.debug(f"Информация о данных сезонности:\n{df_season_sales_copy.info()}")
 
         # Сезонность + фильтрация
         df_first_season = (df_season_sales_copy[['Магазин', 'Товар', 'Сезонность']]
@@ -423,26 +425,23 @@ class Preprocessing_data:
         # Находим пересечение
         common_pairs = pairs_in_next & pairs_in_season
 
-        print(f"Всего пар в df_parse_dates: {len(pairs_in_next)}")
-        print(f"Всего пар в df_first_season: {len(pairs_in_season)}")
-        print(f"Совпадающих пар: {len(common_pairs)}")
+        logger.info(f"Всего пар в df_parse_dates: {len(pairs_in_next)}")
+        logger.info(f"Всего пар в df_first_season: {len(pairs_in_season)}")
+        logger.info(f"Совпадающих пар: {len(common_pairs)}")
 
         if len(common_pairs) == 0:
-            print("Внимание: Нет совпадающих пар Магазин+Товар для объединения!")
+            logger.warning("Нет совпадающих пар Магазин+Товар для объединения!")
         else:
-            print("Есть совпадающие пары, можно делать merge.")
+            logger.debug("Есть совпадающие пары, можно делать merge.")
             df_next_with_season = df_parse_dates.merge(
             df_first_season,
             on=['Магазин', 'Товар'],
             how='inner'  # Только совпадающие строки
         )
-        print('Добавлена сезонность + отфильтрованы данные(Как в исходном датасете)')
+        logger.info('Добавлена сезонность + отфильтрованы данные (как в исходном датасете)')
 
-
-        df_next_with_season['Сезонность_точн'] = (df_next_with_season
-                                                    .apply(self.check_season
-                                                           , axis=1))
-        print('\nДобавлена "Точная сезоннсть" в булевом формате для каждого дня')
+        df_next_with_season['Сезонность_точн'] = df_next_with_season.apply(self.check_season, axis=1)
+        logger.debug('Добавлена "Точная сезонность" в булевом формате для каждого дня')
 
         df_temp = self.add_weather_data(df_next_with_season)
         
@@ -450,16 +449,13 @@ class Preprocessing_data:
             df_temp = df_temp.drop('key_0', axis=1)
 
         df_result_cleaning = self.data_type_refactor(df_temp)
-        print('\nДатасет отчищен')
+        logger.info('Датасет очищен')
 
         end_time = time.time()
         execution_time = end_time - start_time
-        print(f"Время выполнения: {execution_time // 60} минут {execution_time % 60} секунд\n")
+        logger.info(f"Время выполнения предобработки: {execution_time // 60:.0f} минут {execution_time % 60:.0f} секунд")
 
-        # print(df_temp.isna().sum())
-        # print(df_temp.info())
-
-        df_result_cleaning.sort_values(by=['Дата', 'Магазин', 'Товар'])
+        df_result_cleaning = df_result_cleaning.sort_values(by=['Дата', 'Магазин', 'Товар'])
 
         return df_result_cleaning
 

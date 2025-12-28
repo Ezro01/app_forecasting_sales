@@ -1,9 +1,18 @@
+"""
+Модуль для использования обученной модели для предсказания продаж.
+Загружает сохраненную модель и выполняет предсказания на новых данных.
+"""
 import catboost as cb
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
+import logging
 from DB_operations import ModelStorage
 from Preprocessing import Preprocessing_data
+
+# Настройка логирования
+logger = logging.getLogger(__name__)
+
 
 class Use_model_predict:
     def add_lag_values(self, df_first, df_next):
@@ -88,14 +97,11 @@ class Use_model_predict:
 
         df = df.dropna()
         
-        print(df.shape)
-        print(df.info())
-        print(df_first_copy[['Магазин', 'Товар']].drop_duplicates().count())
-        print(df[['Магазин', 'Товар']].drop_duplicates().count())
+        logger.debug(f"Форма датафрейма после добавления лагов: {df.shape}")
+        logger.debug(f"Уникальных пар Магазин+Товар в исходных данных: {df_first_copy[['Магазин', 'Товар']].drop_duplicates().shape[0]}")
+        logger.debug(f"Уникальных пар Магазин+Товар в обработанных данных: {df[['Магазин', 'Товар']].drop_duplicates().shape[0]}")
 
-        
-
-        print('Лаговые столбцы для обучения добавлены')
+        logger.info('Лаговые столбцы для обучения добавлены')
  
         return df
 
@@ -111,7 +117,7 @@ class Use_model_predict:
             df_encoding = df_encoding[df_encoding[col].isin(known)]
             after = len(df_encoding)
             if before != after:
-                print(f"⚠️ Удалено {before - after} строк с неизвестными значениями в {col}")
+                logger.warning(f"Удалено {before - after} строк с неизвестными значениями в {col}")
 
         # Кодируем столбец 'Товар' с помощью LabelEncoder только для обучающих данных
         df_encoding['Товар'] = label_encoder_product.transform(df_encoding['Товар'])
@@ -144,10 +150,7 @@ class Use_model_predict:
                        'Акция', 'Выходной', 'ДеньНедели', 'Месяц', 'День', 'Год',
                        'Сезонность', 'Сезонность_точн']
 
-        # encoder = OneHotEncoder(drop='first', sparse=False, handle_unknown='ignore')
-        # df_encoding[one_hot_enc_col] = encoder.fit_transform(df_encoding[one_hot_enc_col])
-
-        print('Масштабирование данных выполнено')
+        logger.debug('Масштабирование данных выполнено')
 
         return (df_encoding, numerical_columns, cat_columns)
 

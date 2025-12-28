@@ -4,15 +4,18 @@ services:
   app:
     build: .
     ports:
-      - "8000:8000"
+      - "${APP_PORT:-8000}:8000"
     working_dir: /app
     env_file:
       - .env  # Подключаем все переменные из .env файла
     environment:
       - DB_HOST=postgres  # Переопределяем для работы внутри Docker-сети
+      # SSH ключ должен быть предоставлен через переменную окружения SSH_KEY_LOCAL
+      # или смонтирован через volume в docker-compose.override.yml
     volumes:
-      - C:/Users/Asus/.ssh/id_ed25519:/home/appuser/.ssh/id_ed25519
       - .:/app
+      # Для SSH ключа используйте volume override файл:
+      # - ${SSH_KEY_PATH:-~/.ssh/id_ed25519}:/home/appuser/.ssh/id_ed25519:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -33,7 +36,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"  # Пробрасываем порт для подключения с хоста
+      - "${DB_PORT:-5432}:5432"  # Пробрасываем порт для подключения с хоста
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
       interval: 5s

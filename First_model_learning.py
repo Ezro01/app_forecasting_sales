@@ -1,10 +1,19 @@
+"""
+Модуль для обучения модели прогнозирования продаж.
+Использует CatBoost для предсказания продаж на 7 дней вперед.
+"""
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import catboost as cb
 import optuna
+import logging
 from DB_operations import ModelStorage
+
+# Настройка логирования
+logger = logging.getLogger(__name__)
+
 
 class First_learning_model:
     def first_data_type_refactor(self, df):
@@ -94,12 +103,7 @@ class First_learning_model:
         df = df.dropna()
         df['Продажи_7д_вперёд'] = df['Продажи_7д_вперёд'].astype(int)
 
-        # print(df.info())
-        # print(df.isna().sum())
-
-        # df.to_csv('C:/Все папки по жизни/Универ/dataset_for_learning.csv', index=False)
-
-        print('Лаговые столбцы для обучения добавлены')
+        logger.debug('Лаговые столбцы для обучения добавлены')
 
         return df
 
@@ -147,10 +151,7 @@ class First_learning_model:
                         'Акция', 'Выходной', 'ДеньНедели', 'Месяц', 'День', 'Год',
                         'Сезонность', 'Сезонность_точн']
 
-        # encoder = OneHotEncoder(drop='first', sparse=False, handle_unknown='ignore')
-        # df_encoding[one_hot_enc_col] = encoder.fit_transform(df_encoding[one_hot_enc_col])
-
-        print('Масштабирование данных выполнено')
+        logger.debug('Масштабирование данных выполнено')
 
         return (df_encoding, numerical_columns, cat_columns, label_encoder_product, 
             label_encoder_shop, label_encoder_category, 
@@ -172,10 +173,10 @@ class First_learning_model:
         X_test = test_data[numerical_columns + cat_columns]
         y_test = test_data[target_column]
 
-        print(f"\nТренировочные данные: {X_train.shape, y_train.shape}")
-        print(f"Тестовые данные: {X_test.shape, y_test.shape}")
-        print(f"Дата начала обучения: {train_data['Дата'].min()} - конца: {train_data['Дата'].max()}")
-        print(f"Дата начала теста: {test_data['Дата'].min()} - конца: {test_data['Дата'].max()}")
+        logger.info(f"Тренировочные данные: {X_train.shape}, {y_train.shape}")
+        logger.info(f"Тестовые данные: {X_test.shape}, {y_test.shape}")
+        logger.info(f"Дата начала обучения: {train_data['Дата'].min()} - конца: {train_data['Дата'].max()}")
+        logger.info(f"Дата начала теста: {test_data['Дата'].min()} - конца: {test_data['Дата'].max()}")
 
         test_preduction = test_data[['Дата', 'Магазин', 'Товар']].copy()
         test_preduction['Реальные значения'] = y_test[target_column].values
@@ -186,9 +187,9 @@ class First_learning_model:
         X_train = X_train.dropna()
         X_test = X_test.dropna()
 
-        print(f'Размерность X_test: {X_test.shape}\nРазмерность X_train: {X_train.shape}')
-        print(f'Размерность y_test: {y_test.shape}\nРазмерность y_train: {y_train.shape}')
-        print('Разбиение на выборки закончено\n')
+        logger.info(f'Размерность X_test: {X_test.shape}, X_train: {X_train.shape}')
+        logger.info(f'Размерность y_test: {y_test.shape}, y_train: {y_train.shape}')
+        logger.info('Разбиение на выборки закончено')
 
         return X_train, y_train, X_test, y_test, test_preduction
 
@@ -248,10 +249,10 @@ class First_learning_model:
         test_preduction_copy['Предсказанные значения'] = y_pred
 
         rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-        print(f'Root Mean Squared Error: {rmse}')
+        logger.info(f'Root Mean Squared Error: {rmse:.4f}')
 
         mae = mean_absolute_error(y_true, y_pred)
-        print(f'Mean Absolute Error: {mae}')
+        logger.info(f'Mean Absolute Error: {mae:.4f}')
 
         result_metric_diff = 0
         result_real_values = 0
@@ -283,20 +284,14 @@ class First_learning_model:
             else:
                 result_metric_izl_count += 1
 
-
-        print()
-        print(f'Диффиктура (Реальное значение): {result_metric_diff}')
-        print(f'Излишки (Реальное значение): {np.abs(result_metric_izl)}')
-        print()
-        print(f'Диффиктура (Количество): {result_metric_diff_count}')
-        print(f'Излишки (Количество): {np.abs(result_metric_izl_count)}')
-        print()
-        print(f'Идепльно предсказанных значений (Количество): {result_real_values_count}')
-        print(f'Идепльно предсказанных значений (Реальное значение): {result_real_values}')
-        print()
-        print(f'Сумма реальных продаж за 7 дней: {y_true.sum()}')
-        print(f'Сумма предсказанных продаж за 7 дней: {y_pred.sum()}')
-        print()
+        logger.info(f'Дефицит (Реальное значение): {result_metric_diff}')
+        logger.info(f'Излишки (Реальное значение): {np.abs(result_metric_izl)}')
+        logger.info(f'Дефицит (Количество): {result_metric_diff_count}')
+        logger.info(f'Излишки (Количество): {np.abs(result_metric_izl_count)}')
+        logger.info(f'Идеально предсказанных значений (Количество): {result_real_values_count}')
+        logger.info(f'Идеально предсказанных значений (Реальное значение): {result_real_values}')
+        logger.info(f'Сумма реальных продаж за 7 дней: {y_true.sum()}')
+        logger.info(f'Сумма предсказанных продаж за 7 дней: {y_pred.sum()}')
         # Подсчет количества каждого уникального значения
         unique_true, counts_true = np.unique(y_true, return_counts=True)
         unique_pred, counts_pred = np.unique(y_pred, return_counts=True)
@@ -314,13 +309,14 @@ class First_learning_model:
         })
 
         # Вывод результатов в виде таблицы
-        print("Распределение реальных значений:")
-        print(true_counts_df)
-
-        print("\nРаспределение предсказанных значений:")
-        print(pred_counts_df)
+        logger.debug("Распределение реальных значений:")
+        logger.debug(f"\n{true_counts_df}")
+        logger.debug("Распределение предсказанных значений:")
+        logger.debug(f"\n{pred_counts_df}")
+        
         test_preduction_cat_1_difference = self.result_sum(test_preduction_copy)
-        print('Общая разница между предсказанными и реальными значениями: ', test_preduction_cat_1_difference['Разница'].abs().sum())
+        total_diff = test_preduction_cat_1_difference['Разница'].abs().sum()
+        logger.info(f'Общая разница между предсказанными и реальными значениями: {total_diff}')
 
         return test_preduction_copy
 

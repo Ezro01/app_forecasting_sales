@@ -1,10 +1,18 @@
+"""
+Модуль для операций с базой данных.
+Включает создание таблиц, загрузку данных, хранение моделей и извлечение данных.
+"""
 from DB_Connector import DBConnector
 import pickle
 import gzip
 import pandas as pd
 import time
 import datetime
+import logging
 from psycopg2 import sql
+
+# Настройка логирования
+logger = logging.getLogger(__name__)
 
 
 class Create_tables:
@@ -55,7 +63,7 @@ class Create_tables:
                                 CONSTRAINT data_pk_origin PRIMARY KEY ("Дата", "Магазин", "Товар")
                             )
                         """)
-                        print(f"Таблица {table_name} успешно создана")
+                        logger.info(f"Таблица {table_name} успешно создана")
 
                     # Проверка существования индексов
                     indexes_to_create = {
@@ -83,15 +91,15 @@ class Create_tables:
                             created_indexes += 1
 
                     if created_indexes > 0:
-                        print(f"Создано {created_indexes} новых индекса")
+                        logger.info(f"Создано {created_indexes} новых индекса для таблицы {table_name}")
                     else:
                         if table_exists:
-                            print(f"Таблица {table_name} и все индексы уже существуют")
+                            logger.debug(f"Таблица {table_name} и все индексы уже существуют")
 
                     conn.commit()
 
         except Exception as e:
-            print(f"Ошибка при работе с таблицей {table_name}: {e}")
+            logger.error(f"Ошибка при работе с таблицей {table_name}: {e}", exc_info=True)
             raise
 
     def create_enriched_data_table(self, db_connector):
@@ -151,7 +159,7 @@ class Create_tables:
                                 CONSTRAINT data_pk_enriched PRIMARY KEY ("Дата", "Магазин", "Товар")
                             )
                         """)
-                        print(f"Таблица {table_name} успешно создана")
+                        logger.info(f"Таблица {table_name} успешно создана")
 
                     # Проверка существования индексов
                     indexes_to_create = {
@@ -179,15 +187,15 @@ class Create_tables:
                             created_indexes += 1
 
                     if created_indexes > 0:
-                        print(f"Создано {created_indexes} новых индекса")
+                        logger.info(f"Создано {created_indexes} новых индекса для таблицы {table_name}")
                     else:
                         if table_exists:
-                            print(f"Таблица {table_name} и все индексы уже существуют")
+                            logger.debug(f"Таблица {table_name} и все индексы уже существуют")
 
                     conn.commit()
 
         except Exception as e:
-            print(f"Ошибка при работе с таблицей {table_name}: {e}")
+            logger.error(f"Ошибка при работе с таблицей {table_name}: {e}", exc_info=True)
             raise
 
     def create_recovery_data_table(self, db_connector):
@@ -254,7 +262,7 @@ class Create_tables:
                                 CONSTRAINT data_pk_recovery PRIMARY KEY ("Дата", "Магазин", "Товар")
                             )
                         """)
-                        print(f"Таблица {table_name} успешно создана")
+                        logger.info(f"Таблица {table_name} успешно создана")
 
                     # Проверка существования индексов
                     indexes_to_create = {
@@ -282,15 +290,15 @@ class Create_tables:
                             created_indexes += 1
 
                     if created_indexes > 0:
-                        print(f"Создано {created_indexes} новых индекса")
+                        logger.info(f"Создано {created_indexes} новых индекса для таблицы {table_name}")
                     else:
                         if table_exists:
-                            print(f"Таблица {table_name} и все индексы уже существуют")
+                            logger.debug(f"Таблица {table_name} и все индексы уже существуют")
 
                     conn.commit()
 
         except Exception as e:
-            print(f"Ошибка при работе с таблицей {table_name}: {e}")
+            logger.error(f"Ошибка при работе с таблицей {table_name}: {e}", exc_info=True)
             raise
 
     def saved_ml_data_table(self, db_connector):
@@ -327,7 +335,7 @@ class Create_tables:
                                 comment TEXT
                             )
                         """)
-                        print(f"Таблица {table_name} успешно создана")
+                        logger.info(f"Таблица {table_name} успешно создана")
 
                     # Проверка существования индексов
                     indexes_to_create = {
@@ -353,15 +361,15 @@ class Create_tables:
                             created_indexes += 1
 
                     if created_indexes > 0:
-                        print(f"Создано {created_indexes} новых индекса")
+                        logger.info(f"Создано {created_indexes} новых индекса для таблицы {table_name}")
                     else:
                         if table_exists:
-                            print(f"Таблица {table_name} и все индексы уже существуют")
+                            logger.debug(f"Таблица {table_name} и все индексы уже существуют")
 
                     conn.commit()
 
         except Exception as e:
-            print(f"Ошибка при работе с таблицей {table_name}: {e}")
+            logger.error(f"Ошибка при работе с таблицей {table_name}: {e}", exc_info=True)
             raise
 
     def create_forecast_table(self, db_connector):
@@ -395,7 +403,7 @@ class Create_tables:
                                 CONSTRAINT forecast_pk PRIMARY KEY ("Дата", "Магазин", "Товар")
                             )
                         """)
-                        print(f"Таблица {table_name} успешно создана")
+                        logger.info(f"Таблица {table_name} успешно создана")
 
                     # Проверка существования индексов
                     indexes_to_create = {
@@ -423,15 +431,15 @@ class Create_tables:
                             created_indexes += 1
 
                     if created_indexes > 0:
-                        print(f"Создано {created_indexes} новых индекса")
+                        logger.info(f"Создано {created_indexes} новых индекса для таблицы {table_name}")
                     else:
                         if table_exists:
-                            print(f"Таблица {table_name} и все индексы уже существуют")
+                            logger.debug(f"Таблица {table_name} и все индексы уже существуют")
 
                     conn.commit()
 
         except Exception as e:
-            print(f"Ошибка при работе с таблицей {table_name}: {e}")
+            logger.error(f"Ошибка при работе с таблицей {table_name}: {e}", exc_info=True)
             raise
 
 class DataLoader:
@@ -676,14 +684,14 @@ class DataLoader:
         if missing_cols:
             raise ValueError(f"Отсутствуют обязательные столбцы в DataFrame: {missing_cols}")
 
-        # Добавляем недостающие необязательные столбцы с значениями по умолчанию
+                    # Добавляем недостающие необязательные столбцы с значениями по умолчанию
         for col in optional_columns:
             if col in config["column_mapping"] and col not in df.columns:
                 if col == 'Температура (°C)':
                     df[col] = 0.0
                 elif col == 'Давление (мм рт. ст.)':
                     df[col] = 0.0
-                print(f"📝 Добавлен столбец {col} со значением по умолчанию")
+                logger.debug(f"Добавлен столбец {col} со значением по умолчанию")
 
         # Переименовываем столбцы согласно маппингу
         df = df.rename(columns=config["column_mapping"])
@@ -711,8 +719,8 @@ class DataLoader:
                     elif dtype == 'bool':
                         df[col] = df[col].astype(bool)
                 except Exception as e:
-                    print(f"⚠️ Ошибка при приведении типа для столбца {col}: {e}")
-                    # Продолжаем с исходным типом
+                    logger.warning(f"Ошибка при приведении типа для столбца {col}: {e}")
+                        
 
         return df
 
@@ -731,12 +739,12 @@ class DataLoader:
             with self.db.get_connection() as conn:
                 with conn.cursor() as cursor:
                     if 'Дата' in df.columns:
-                        print(f"🔍 Проверяем последние даты в таблице {table_name}...")
-                        print(f"📊 Исходный датасет содержит {len(df)} записей")
+                        logger.debug(f"Проверяем последние даты в таблице {table_name}")
+                        logger.debug(f"Исходный датасет содержит {len(df)} записей")
                         
                         # Получаем максимальную дату из исходного датасета
                         max_date_df = pd.to_datetime(df['Дата']).max()
-                        print(f"📅 Максимальная дата в исходном датасете: {max_date_df.strftime('%Y-%m-%d')}")
+                        logger.debug(f"Максимальная дата в исходном датасете: {max_date_df.strftime('%Y-%m-%d')}")
                         
                         # Получаем максимальную дату из БД
                         cursor.execute(f"""
@@ -746,11 +754,11 @@ class DataLoader:
                         result = cursor.fetchone()
                         
                         if result[0] is None:
-                            print("📥 Таблица пуста, загружаем все данные")
+                            logger.info("Таблица пуста, загружаем все данные")
                             return df
                         
                         max_date_db = result[0]
-                        print(f"📅 Максимальная дата в БД: {max_date_db.strftime('%Y-%m-%d')}")
+                        logger.debug(f"Максимальная дата в БД: {max_date_db.strftime('%Y-%m-%d')}")
                         
                         # Приводим даты к одному типу для корректного сравнения
                         max_date_df_date = max_date_df.date()
@@ -758,30 +766,30 @@ class DataLoader:
                         
                         # Сравниваем даты
                         if max_date_df_date <= max_date_db_date:
-                            print(f"✅ Все данные уже загружены (последняя дата в БД: {max_date_db.strftime('%Y-%m-%d')})")
+                            logger.info(f"Все данные уже загружены (последняя дата в БД: {max_date_db.strftime('%Y-%m-%d')})")
                             return pd.DataFrame()  # Возвращаем пустой DataFrame
                         
                         # Фильтруем записи новее последней даты в БД
                         newer_records = df[pd.to_datetime(df['Дата']).dt.date > max_date_db_date].copy()
                         
                         if len(newer_records) > 0:
-                            print(f"📥 Найдено {len(newer_records)} записей новее {max_date_db.strftime('%Y-%m-%d')}")
-                            print(f"📅 Диапазон новых дат: {newer_records['Дата'].min()} - {newer_records['Дата'].max()}")
+                            logger.info(f"Найдено {len(newer_records)} записей новее {max_date_db.strftime('%Y-%m-%d')}")
+                            logger.debug(f"Диапазон новых дат: {newer_records['Дата'].min()} - {newer_records['Дата'].max()}")
                             return newer_records
                         else:
-                            print("✅ Нет новых записей для загрузки")
+                            logger.info("Нет новых записей для загрузки")
                             return pd.DataFrame()
                     else:
-                        print("⚠️ Столбец 'Дата' не найден, загружаем без проверки существующих данных")
+                        logger.warning("Столбец 'Дата' не найден, загружаем без проверки существующих данных")
                         return df
                         
         except Exception as e:
-            print(f"⚠️ Ошибка при проверке последних дат: {str(e)}")
-            print("🔄 Продолжаем загрузку без проверки существующих данных...")
+            logger.warning(f"Ошибка при проверке последних дат: {str(e)}")
+            logger.info("Продолжаем загрузку без проверки существующих данных")
             return df
         except RecursionError:
-            print("⚠️ Превышена максимальная глубина рекурсии при проверке данных")
-            print("🔄 Продолжаем загрузку без проверки существующих данных...")
+            logger.warning("Превышена максимальная глубина рекурсии при проверке данных")
+            logger.info("Продолжаем загрузку без проверки существующих данных")
             return df
 
     def load_data(self, df, table_name, batch_size=100000, on_conflict_update=True, check_existing=True):
@@ -801,15 +809,15 @@ class DataLoader:
             # Проверяем существующие данные, если включено
             if check_existing and len(df) > 0:
                 df_original = df.copy()  # Сохраняем оригинальный DataFrame для сравнения
-                print(f"🔍 Проверяем существующие данные в таблице {table_name}...")
+                logger.debug(f"Проверяем существующие данные в таблице {table_name}")
                 df = self._check_existing_data(df, table_name)
                 
                 # Если нет новых данных для загрузки
                 if len(df) == 0:
-                    print(f"✅ Все данные уже существуют в таблице {table_name}")
+                    logger.info(f"Все данные уже существуют в таблице {table_name}")
                     return
                 elif len(df) < len(df_original):
-                    print(f"📥 Загружаем только недостающие записи: {len(df)} из {len(df_original)}")
+                    logger.info(f"Загружаем только недостающие записи: {len(df)} из {len(df_original)}")
 
             # Подготавливаем данные (переименование + приведение типов)
             df = self._prepare_data(df, table_name)
@@ -857,12 +865,12 @@ class DataLoader:
 
                         cursor.executemany(insert_sql, records)
                         conn.commit()
-                        print(f"Загружено {min(i + batch_size, len(df))}/{len(df)} записей в {table_name}")
+                        logger.debug(f"Загружено {min(i + batch_size, len(df))}/{len(df)} записей в {table_name}")
 
-                    print(f"✅ Успешно загружено {len(df)} записей в {table_name}")
+                    logger.info(f"Успешно загружено {len(df)} записей в {table_name}")
 
         except Exception as e:
-            print(f"❌ Ошибка при загрузке данных в {table_name}: {str(e)}")
+            logger.error(f"Ошибка при загрузке данных в {table_name}: {str(e)}", exc_info=True)
             raise
 
     # Специализированные методы для удобства
@@ -940,10 +948,10 @@ class ModelStorage:
 
                     load_id = cursor.fetchone()[0]
                     conn.commit()
-                    print(f"Модели и энкодеры сохранены в таблицу ML_данные_для_работы_модели под ID: {load_id}")
+                    logger.info(f"Модели и энкодеры сохранены в таблицу ML_данные_для_работы_модели под ID: {load_id}")
                     return load_id
         except Exception as e:
-            print(f"Ошибка сохранения: {str(e)}")
+            logger.error(f"Ошибка сохранения: {str(e)}", exc_info=True)
             raise
 
     def load_latest_models(self, compressed=False):
@@ -974,7 +982,7 @@ class ModelStorage:
                         return (label_encoder_product, label_encoder_shop, label_encoder_category, label_encoder_potreb_group, label_encoder_mnn, scaler, catboost_model)
                     raise ValueError("В таблице ML_данные_для_работы_модели нет сохраненных моделей")
         except Exception as e:
-            print(f"Ошибка загрузки: {str(e)}")
+            logger.error(f"Ошибка загрузки: {str(e)}", exc_info=True)
             raise
 
 
@@ -992,11 +1000,11 @@ class ModelStorage:
                     deleted = cursor.fetchone()
                     conn.commit()
                     if deleted:
-                        print(f"Набор моделей ID {deleted[0]} удален из ML_данные_для_работы_модели")
+                        logger.info(f"Набор моделей ID {deleted[0]} удален из ML_данные_для_работы_модели")
                         return True
                     return False
         except Exception as e:
-            print(f"Ошибка удаления: {str(e)}")
+            logger.error(f"Ошибка удаления: {str(e)}", exc_info=True)
             raise
 
     def table_exists(self):
@@ -1012,7 +1020,7 @@ class ModelStorage:
                     """)
                     return cursor.fetchone()[0]
         except Exception as e:
-            print(f"Ошибка проверки таблицы: {str(e)}")
+            logger.error(f"Ошибка проверки таблицы: {str(e)}", exc_info=True)
             return False
 
     def load_models_by_id(self, load_id, compressed=False):
@@ -1044,7 +1052,7 @@ class ModelStorage:
                         return (label_encoder_product, label_encoder_shop, label_encoder_category, label_encoder_potreb_group, label_encoder_mnn, scaler, catboost_model)
                     raise ValueError(f"Модели с ID {load_id} не найдены в таблице ML_данные_для_работы_модели")
         except Exception as e:
-            print(f"Ошибка загрузки: {str(e)}")
+            logger.error(f"Ошибка загрузки: {str(e)}", exc_info=True)
             raise
 
 class DataExtractor:
@@ -1079,7 +1087,7 @@ class DataExtractor:
                     df = pd.DataFrame(data, columns=colnames)
             return df
         except Exception as e:
-            print(f"Ошибка при выгрузке из {table_name}: {e}")
+            logger.error(f"Ошибка при выгрузке из {table_name}: {e}", exc_info=True)
             raise
 
     def fetch_origin_data(self, columns=None, where=None, limit=None):
@@ -1119,7 +1127,7 @@ class Last30DaysExtractor:
                     )
                     last_dates = [row[0] for row in cursor.fetchall()]
                     if not last_dates:
-                        print(f"Нет данных в таблице {table_name}")
+                        logger.warning(f"Нет данных в таблице {table_name}")
                         return pd.DataFrame()
                     min_date = min(last_dates)
                     cursor.execute(
@@ -1131,7 +1139,7 @@ class Last30DaysExtractor:
                     df = pd.DataFrame(data, columns=colnames)
             return df
         except Exception as e:
-            print(f"Ошибка при выгрузке из {table_name}: {e}")
+            logger.error(f"Ошибка при выгрузке из {table_name}: {e}", exc_info=True)
             raise
 
 
