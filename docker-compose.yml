@@ -31,7 +31,7 @@ services:
     
     # Volumes только для локальной разработки (опционально)
     # В production эти volumes не нужны
-    volumes:
+    # volumes:
       # Раскомментируйте для разработки с hot-reload
       # - .:/app
       # Для SSH ключей (только для локальной разработки)
@@ -55,3 +55,13 @@ services:
     # Ограничения ресурсов (раскомментируйте при необходимости)
     # Для Docker Compose v3 используйте docker stats или внешние инструменты
     # Для Docker Swarm используйте секцию deploy.resources
+  db:
+    image: postgres:17.7-alpine
+    ports: 
+      - 127.0.0.1:15432:5432
+    env_file:
+      - .env-db
+    volumes:
+      - ./pgdir:/var/lib/postgresql
+      
+      

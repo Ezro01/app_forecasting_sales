@@ -72,7 +72,12 @@ def create_tables_route():
 
 @router_main.get("/list-files")
 def list_sftp_files(remote_directory: str = "/"):
-    """Получение списка файлов на SFTP сервере."""
+    """
+    Получение списка файлов на SFTP сервере.
+    
+    Args:
+        remote_directory: Путь к директории на SFTP сервере (по умолчанию "/")
+    """
     try:
         logger.info(f"Получение списка файлов из директории: {remote_directory}")
         sftp_loader = SFTPDataLoader(SFTP_CONFIG)
@@ -82,7 +87,18 @@ def list_sftp_files(remote_directory: str = "/"):
         
         try:
             files = sftp_loader.list_available_files(remote_directory)
-            logger.info(f"Найдено {len(files)} файлов")
+            
+            if not files:
+                # Если файлов нет, возвращаем информативное сообщение
+                return {
+                    "message": f"Директория {remote_directory} пуста, недоступна или не существует",
+                    "directory": remote_directory,
+                    "files": [],
+                    "total_files": 0,
+                    "warning": "Проверьте правильность пути к директории"
+                }
+            
+            logger.info(f"Найдено {len(files)} CSV файлов в {remote_directory}")
             return {
                 "message": "Список файлов получен успешно",
                 "directory": remote_directory,
